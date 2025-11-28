@@ -1,6 +1,6 @@
 services:
   notify-scheduler:
-    build: .
+    image: 7ommymerlin/notify-scheduler:latest
     container_name: notify-scheduler
     restart: unless-stopped
     ports:
