@@ -1,0 +1,20 @@
+[Unit]
+Description=Notify Scheduler Service
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/notify-scheduler
+Environment="PATH=/var/www/notify-scheduler/venv/bin"
+ExecStart=/var/www/notify-scheduler/venv/bin/gunicorn -c gunicorn_config.py app:app
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

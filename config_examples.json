@@ -1,0 +1,50 @@
+{
+  "企业微信": {
+    "channel": "wecom",
+    "config": {
+      "corpid": "ww1234567890abcdef",
+      "corpsecret": "your_corp_secret_here",
+      "agentid": "1000002"
+    }
+  },
+  "企业微信Webhook": {
+    "channel": "wecom_webhook",
+    "config": {
+      "webhook_url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    }
+  },
+  "飞书": {
+    "channel": "feishu",
+    "config": {
+      "appid": "cli_xxxxxxxxxx",
+      "appsecret": "your_app_secret_here",
+      "receiver_type": "OPEN_ID",
+      "receiver_id": "ou_xxxxxxxxxxxxxxxxx"
+    },
+    "注释": "receiver_type 可选值: OPEN_ID, UNION_ID, USER_ID, CHAT_ID"
+  },
+  "飞书Webhook": {
+    "channel": "feishu_webhook",
+    "config": {
+      "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+    }
+  },
+  "钉钉Webhook": {
+    "channel": "dingtalk_webhook",
+    "config": {
+      "webhook_url": "https://oapi.dingtalk.com/robot/send?access_token=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  },
+  "PushPlus": {
+    "channel": "pushplus",
+    "config": {
+      "token": "your_pushplus_token_here"
+    }
+  },
+  "Server酱": {
+    "channel": "serverchan",
+    "config": {
+      "token": "your_serverchan_token_here"
+    }
+  }
+}

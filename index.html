@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通知定时发送系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .config-fields {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .config-fields .form-group {
+            margin-bottom: 15px;
+        }
+
+        .config-fields .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .btn-info {
+            background: #3498db;
+            color: white;
+        }
+
+        .task-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .task-item {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+
+        .task-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 10px;
+        }
+
+        .task-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .task-content {
+            color: #666;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .task-meta {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            font-size: 0.9rem;
+            color: #777;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-sent {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-cancelled {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .channel-badge {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .filter-bar select {
+            flex: 1;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+        }
+
+        .notification.success {
+            background: #27ae60;
+        }
+
+        .notification.error {
+            background: #e74c3c;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            cursor: pointer;
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📬 通知定时发送系统</h1>
+            <p>支持多渠道定时发送通知，让您的消息准时到达</p>
+        </header>
+
+        <div class="main-content">
+            <!-- 创建任务表单 -->
+            <div class="card">
+                <h2>创建通知任务</h2>
+                <form id="taskForm">
+                    <div class="form-group">
+                        <label for="title">通知标题 *</label>
+                        <input type="text" id="title" name="title" placeholder="请输入通知标题" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="content">通知内容 *</label>
+                        <textarea id="content" name="content" placeholder="请输入通知内容，支持 Markdown 格式" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="channel">通知渠道 *</label>
+                        <select id="channel" name="channel" required>
+                            <option value="">请选择通知渠道</option>
+                        </select>
+                    </div>
+
+                    <div id="configFields" class="config-fields" style="display: none;">
+                        <!-- 动态生成配置字段 -->
+                    </div>
+
+                    <div class="form-group">
+                        <label for="scheduledTime">计划发送时间 *</label>
+                        <input type="datetime-local" id="scheduledTime" name="scheduledTime" required>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="isRecurring" name="isRecurring">
+                            <label for="isRecurring" style="margin-bottom: 0;">重复任务</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="cronGroup" style="display: none;">
+                        <label for="cronExpression">Cron 表达式</label>
+                        <input type="text" id="cronExpression" name="cronExpression" placeholder="如: 0 9 * * * (每天9点)">
+                        <small style="color: #999; display: block; margin-top: 5px;">
+                            示例: 0 9 * * * (每天9点) | 0 */2 * * * (每2小时) | 0 9 * * 1 (每周一9点)
+                        </small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">创建任务</button>
+                </form>
+            </div>
+
+            <!-- 任务列表 -->
+            <div class="card">
+                <h2>任务列表</h2>
+                <div class="filter-bar">
+                    <select id="statusFilter">
+                        <option value="">全部状态</option>
+                        <option value="pending">待发送</option>
+                        <option value="sent">已发送</option>
+                        <option value="failed">发送失败</option>
+                        <option value="cancelled">已取消</option>
+                    </select>
+                    <button class="btn btn-info btn-sm" onclick="loadTasks()">刷新</button>
+                </div>
+                <div id="taskList" class="task-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>加载中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let channels = [];
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadChannels();
+            loadTasks();
+            initEventListeners();
+            setDefaultTime();
+        });
+
+        // 设置默认时间为当前时间+1小时
+        function setDefaultTime() {
+            const now = new Date();
+            now.setHours(now.getHours() + 1);
+            const timeString = now.toISOString().slice(0, 16);
+            document.getElementById('scheduledTime').value = timeString;
+        }
+
+        // 加载通知渠道
+        async function loadChannels() {
+            try {
+                const response = await fetch(`${API_BASE}/channels`);
+                const data = await response.json();
+                channels = data.channels;
+                
+                const channelSelect = document.getElementById('channel');
+                channels.forEach(channel => {
+                    const option = document.createElement('option');
+                    option.value = channel.value;
+                    option.textContent = channel.label;
+                    option.dataset.fields = JSON.stringify(channel.config_fields);
+                    channelSelect.appendChild(option);
+                });
+            } catch (error) {
+                showNotification('加载渠道失败: ' + error.message, 'error');
+            }
+        }
+
+        // 渠道改变时更新配置字段
+        function onChannelChange() {
+            const channelSelect = document.getElementById('channel');
+            const selectedOption = channelSelect.options[channelSelect.selectedIndex];
+            const configFieldsDiv = document.getElementById('configFields');
+            
+            if (!selectedOption.value) {
+                configFieldsDiv.style.display = 'none';
+                return;
+            }
+            
+            const fields = JSON.parse(selectedOption.dataset.fields || '[]');
+            configFieldsDiv.innerHTML = '';
+            
+            fields.forEach(field => {
+                const formGroup = document.createElement('div');
+                formGroup.className = 'form-group';
+                
+                const label = document.createElement('label');
+                label.textContent = getFieldLabel(field);
+                formGroup.appendChild(label);
+                
+                const input = document.createElement('input');
+                input.type = field.includes('token') || field.includes('secret') ? 'password' : 'text';
+                input.id = `config_${field}`;
+                input.name = field;
+                input.placeholder = `请输入${getFieldLabel(field)}`;
+                input.required = true;
+                formGroup.appendChild(input);
+                
+                configFieldsDiv.appendChild(formGroup);
+            });
+            
+            configFieldsDiv.style.display = fields.length > 0 ? 'block' : 'none';
+        }
+
+        // 获取字段中文标签
+        function getFieldLabel(field) {
+            const labels = {
+                'corpid': '企业ID',
+                'corpsecret': '应用Secret',
+                'agentid': '应用ID',
+                'webhook_url': 'Webhook URL',
+                'appid': '应用ID',
+                'appsecret': '应用Secret',
+                'receiver_type': '接收者类型',
+                'receiver_id': '接收者ID',
+                'token': 'Token'
+            };
+            return labels[field] || field;
+        }
+
+        // 加载任务列表
+        async function loadTasks() {
+            const taskList = document.getElementById('taskList');
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            taskList.innerHTML = '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
+            
+            try {
+                const url = statusFilter 
+                    ? `${API_BASE}/tasks?status=${statusFilter}&page_size=100`
+                    : `${API_BASE}/tasks?page_size=100`;
+                    
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.tasks && data.tasks.length > 0) {
+                    taskList.innerHTML = '';
+                    data.tasks.forEach(task => {
+                        taskList.appendChild(createTaskElement(task));
+                    });
+                } else {
+                    taskList.innerHTML = '<div class="empty-state"><i>📭</i><p>暂无任务</p></div>';
+                }
+            } catch (error) {
+                taskList.innerHTML = '<div class="empty-state"><i>❌</i><p>加载失败: ' + error.message + '</p></div>';
+            }
+        }
+
+        // 创建任务元素
+        function createTaskElement(task) {
+            const div = document.createElement('div');
+            div.className = 'task-item';
+            
+            const statusClass = `status-${task.status}`;
+            const statusText = {
+                'pending': '待发送',
+                'sent': '已发送',
+                'failed': '发送失败',
+                'cancelled': '已取消'
+            }[task.status] || task.status;
+            
+            const channelText = channels.find(c => c.value === task.channel)?.label || task.channel;
+            
+            div.innerHTML = `
+                <div class="task-header">
+                    <div>
+                        <div class="task-title">${escapeHtml(task.title)}</div>
+                        <span class="status-badge ${statusClass}">${statusText}</span>
+                        <span class="channel-badge">${channelText}</span>
+                    </div>
+                </div>
+                <div class="task-content">${escapeHtml(task.content)}</div>
+                <div class="task-meta">
+                    <span>📅 计划时间: ${formatDateTime(task.scheduled_time)}</span>
+                    ${task.sent_time ? `<span>✅ 发送时间: ${formatDateTime(task.sent_time)}</span>` : ''}
+                    ${task.is_recurring ? `<span>🔁 重复任务: ${task.cron_expression}</span>` : ''}
+                    <span>🆔 ID: ${task.id}</span>
+                </div>
+                ${task.error_msg ? `<div style="color: #e74c3c; margin-top: 10px;">❌ 错误: ${escapeHtml(task.error_msg)}</div>` : ''}
+                ${task.status === 'pending' ? `
+                <div class="task-actions">
+                    <button class="btn btn-sm btn-danger" onclick="cancelTask(${task.id})">取消任务</button>
+                </div>
+                ` : ''}
+            `;
+            
+            return div;
+        }
+
+        // 提交表单
+        async function submitForm(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const channel = formData.get('channel');
+            const channelSelect = document.getElementById('channel');
+            const selectedOption = channelSelect.options[channelSelect.selectedIndex];
+            const configFields = JSON.parse(selectedOption.dataset.fields || '[]');
+            
+            // 构建配置对象
+            const channelConfig = {};
+            configFields.forEach(field => {
+                const value = document.getElementById(`config_${field}`).value;
+                channelConfig[field] = value;
+            });
+            
+            // 构建任务数据
+            const taskData = {
+                title: formData.get('title'),
+                content: formData.get('content'),
+                channel: channel,
+                scheduled_time: new Date(formData.get('scheduledTime')).toISOString(),
+                channel_config: channelConfig,
+                is_recurring: formData.get('isRecurring') === 'on',
+                cron_expression: formData.get('isRecurring') === 'on' ? formData.get('cronExpression') : null
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/tasks`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(taskData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification('任务创建成功！', 'success');
+                    e.target.reset();
+                    setDefaultTime();
+                    document.getElementById('configFields').style.display = 'none';
+                    document.getElementById('cronGroup').style.display = 'none';
+                    loadTasks();
+                } else {
+                    showNotification('创建失败: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showNotification('创建失败: ' + error.message, 'error');
+            }
+        }
+
+        // 取消任务
+        async function cancelTask(taskId) {
+            if (!confirm('确定要取消这个任务吗？')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showNotification('任务已取消', 'success');
+                    loadTasks();
+                } else {
+                    showNotification('取消失败: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showNotification('取消失败: ' + error.message, 'error');
+            }
+        }
+
+        // 初始化事件监听
+        function initEventListeners() {
+            document.getElementById('taskForm').addEventListener('submit', submitForm);
+            document.getElementById('channel').addEventListener('change', onChannelChange);
+            document.getElementById('statusFilter').addEventListener('change', loadTasks);
+            document.getElementById('isRecurring').addEventListener('change', function() {
+                document.getElementById('cronGroup').style.display = this.checked ? 'block' : 'none';
+            });
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // 格式化时间
+        function formatDateTime(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // HTML 转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 自动刷新任务列表（每30秒）
+        setInterval(loadTasks, 30000);
+    </script>
+</body>
+</html>
