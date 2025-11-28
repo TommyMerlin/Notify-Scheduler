@@ -425,12 +425,17 @@
             setDefaultTime();
         });
 
-        // 设置默认时间为当前时间+1小时
+        // 将 Date 转为 datetime-local 可用的本地时间字符串
+        function toLocalInputValue(date) {
+            const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+            return local.toISOString().slice(0, 16);
+        }
+
+        // 设置默认时间为当前时间+1小时（东八区本地时间）
         function setDefaultTime() {
             const now = new Date();
             now.setHours(now.getHours() + 1);
-            const timeString = now.toISOString().slice(0, 16);
-            document.getElementById('scheduledTime').value = timeString;
+            document.getElementById('scheduledTime').value = toLocalInputValue(now);
         }
 
         // 加载通知渠道
@@ -592,11 +597,12 @@
             });
             
             // 构建任务数据
+            const scheduledTimeValue = formData.get('scheduledTime');
             const taskData = {
                 title: formData.get('title'),
                 content: formData.get('content'),
                 channel: channel,
-                scheduled_time: new Date(formData.get('scheduledTime')).toISOString(),
+                scheduled_time: scheduledTimeValue ? `${scheduledTimeValue}:00` : null,
                 channel_config: channelConfig,
                 is_recurring: formData.get('isRecurring') === 'on',
                 cron_expression: formData.get('isRecurring') === 'on' ? formData.get('cronExpression') : null
