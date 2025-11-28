@@ -3,6 +3,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, B
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import enum
+import os
 
 Base = declarative_base()
 
@@ -71,7 +72,9 @@ class NotifyTask(Base):
 
 
 # 数据库配置
-DATABASE_URL = 'sqlite:///notify_scheduler.db'
+default_db_path = os.path.join(os.getenv('DATA_DIR', 'data'), 'notify_scheduler.db')
+os.makedirs(os.path.dirname(default_db_path), exist_ok=True)
+DATABASE_URL = os.getenv('DATABASE_URL', f"sqlite:///{default_db_path}")
 engine = create_engine(DATABASE_URL, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
