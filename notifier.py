@@ -52,7 +52,7 @@ class NotificationSender:
         )
         
         message = f"**{title}**\n\n{content}"
-        result = wn.send_msg_markdown(message)
+        result = wn.send_msg(message)
         return True
 
     @staticmethod
@@ -62,7 +62,7 @@ class NotificationSender:
         
         wn_webhook = Nwecom.WxWebhookNotify(config['webhook_url'])
         message = f"**{title}**\n\n{content}"
-        result = wn_webhook.send_msg_markdown(message)
+        result = wn_webhook.send_msg(message)
         return True
 
     @staticmethod
