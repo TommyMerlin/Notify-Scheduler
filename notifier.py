@@ -51,7 +51,7 @@ class NotificationSender:
             agentid=config['agentid']
         )
         
-        message = f"**{title}**\n\n{content}"
+        message = f"{title}\n{content}"
         result = wn.send_msg(message)
         return True
 
@@ -61,7 +61,7 @@ class NotificationSender:
         from ANotify import Nwecom
         
         wn_webhook = Nwecom.WxWebhookNotify(config['webhook_url'])
-        message = f"**{title}**\n\n{content}"
+        message = f"{title}\n{content}"
         result = wn_webhook.send_msg(message)
         return True
 
