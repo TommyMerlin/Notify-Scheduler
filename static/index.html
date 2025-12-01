@@ -27,6 +27,9 @@
             text-align: center;
             color: white;
             margin-bottom: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         header h1 {
@@ -37,6 +40,29 @@
         header p {
             font-size: 1.1rem;
             opacity: 0.9;
+        }
+
+        .user-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 25px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 5px 15px;
+            border-radius: 15px;
+            margin-left: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
 
         .main-content {
@@ -305,6 +331,79 @@
             cursor: pointer;
         }
 
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .login-tabs {
+            display: flex;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .login-tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .login-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .channel-management {
+            margin-top: 20px;
+        }
+
+        .channel-item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .channel-info {
+            flex: 1;
+        }
+
+        .channel-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .channel-type {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .channel-actions {
+            display: flex;
+            gap: 10px;
+        }
+
         @media (max-width: 968px) {
             .main-content {
                 grid-template-columns: 1fr;
@@ -331,130 +430,583 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>📬 通知定时发送系统</h1>
-            <p>支持多渠道定时发送通知，让您的消息准时到达</p>
-        </header>
+    <!-- 登录界面 -->
+    <div id="loginPage" style="display: none;">
+        <div class="login-container">
+            <div class="login-card">
+                <div class="login-tabs">
+                    <div class="login-tab active" onclick="switchTab('login')">登录</div>
+                    <div class="login-tab" onclick="switchTab('register')">注册</div>
+                </div>
 
-        <div class="main-content">
-            <!-- 创建任务表单 -->
-            <div class="card">
-                <h2>创建通知任务</h2>
-                <form id="taskForm">
-                    <div class="form-group">
-                        <label for="title">通知标题 *</label>
-                        <input type="text" id="title" name="title" placeholder="请输入通知标题" required>
-                    </div>
+                <!-- 登录表单 -->
+                <div id="loginTab" class="tab-content active">
+                    <h2 style="text-align: center; margin-bottom: 30px; color: #333;">登录通知系统</h2>
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label for="loginUsername">用户名或邮箱</label>
+                            <input type="text" id="loginUsername" name="username" required placeholder="请输入用户名或邮箱">
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">密码</label>
+                            <input type="password" id="loginPassword" name="password" required placeholder="请输入密码">
+                        </div>
+                        <button type="submit" class="btn btn-primary">登录</button>
+                    </form>
+                </div>
 
-                    <div class="form-group">
-                        <label for="content">通知内容 *</label>
-                        <textarea id="content" name="content" placeholder="请输入通知内容" required></textarea>
-                    </div>
+                <!-- 注册表单 -->
+                <div id="registerTab" class="tab-content">
+                    <h2 style="text-align: center; margin-bottom: 30px; color: #333;">注册新账号</h2>
+                    <form id="registerForm">
+                        <div class="form-group">
+                            <label for="registerUsername">用户名</label>
+                            <input type="text" id="registerUsername" name="username" required placeholder="请输入用户名">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail">邮箱</label>
+                            <input type="email" id="registerEmail" name="email" required placeholder="请输入邮箱">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">密码</label>
+                            <input type="password" id="registerPassword" name="password" required placeholder="请输入密码（至少6位）" minlength="6">
+                        </div>
+                        <button type="submit" class="btn btn-primary">注册</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                    <div class="form-group">
-                        <label for="channel">通知渠道 *</label>
-                        <select id="channel" name="channel" required>
-                            <option value="">请选择通知渠道</option>
-                        </select>
-                    </div>
+    <!-- 主应用界面 -->
+    <div id="mainApp" style="display: none;">
+        <div class="container">
+            <header>
+                <div>
+                    <h1>📬 通知定时发送系统</h1>
+                    <p>支持多渠道定时发送通知，让您的消息准时到达</p>
+                </div>
+                <div class="user-info">
+                    <span>👤 <span id="currentUsername"></span></span>
+                    <button class="logout-btn" onclick="logout()">退出</button>
+                </div>
+            </header>
 
-                    <div id="configFields" class="config-fields" style="display: none;">
-                        <!-- 动态生成配置字段 -->
-                    </div>
+            <div class="main-content">
+                <!-- 创建任务表单 -->
+                <div class="card">
+                    <h2>创建通知任务</h2>
+                    <form id="taskForm">
+                        <div class="form-group">
+                            <label for="title">通知标题 *</label>
+                            <input type="text" id="title" name="title" placeholder="请输入通知标题" required>
+                        </div>
 
-                    <div class="form-group">
-                        <label for="scheduledTime">计划发送时间 *</label>
-                        <input type="datetime-local" id="scheduledTime" name="scheduledTime" required>
-                    </div>
+                        <div class="form-group">
+                            <label for="content">通知内容 *</label>
+                            <textarea id="content" name="content" placeholder="请输入通知内容" required></textarea>
+                        </div>
 
-                    <div class="form-group">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="isRecurring" name="isRecurring">
-                            <label for="isRecurring" style="margin-bottom: 0;">重复任务</label>
+                        <div class="form-group">
+                            <label for="channel">通知渠道 *</label>
+                            <select id="channel" name="channel" required>
+                                <option value="">请选择通知渠道</option>
+                            </select>
+                        </div>
+
+                        <div id="configFields" class="config-fields" style="display: none;">
+                            <!-- 动态生成配置字段 -->
+                        </div>
+
+                        <div class="form-group">
+                            <label for="scheduledTime">计划发送时间 *</label>
+                            <input type="datetime-local" id="scheduledTime" name="scheduledTime" required>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="isRecurring" name="isRecurring">
+                                <label for="isRecurring" style="margin-bottom: 0;">重复任务</label>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="cronGroup" style="display: none;">
+                            <label for="cronExpression">Cron 表达式</label>
+                            <input type="text" id="cronExpression" name="cronExpression" placeholder="如: 0 9 * * * (每天9点)">
+                            <small style="color: #999; display: block; margin-top: 5px;">
+                                示例: 0 9 * * * (每天9点) | 0 */2 * * * (每2小时) | 0 9 * * 1 (每周一9点)
+                            </small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">创建任务</button>
+                    </form>
+
+                    <!-- 渠道管理 -->
+                    <div class="channel-management">
+                        <h3 style="margin-top: 30px; margin-bottom: 15px; color: #333; font-size: 1.2rem;">我的通知渠道</h3>
+                        <button class="btn btn-sm btn-info" onclick="openChannelModal()">添加渠道</button>
+                        <div id="userChannels" class="channel-list">
+                            <!-- 动态生成用户渠道列表 -->
                         </div>
                     </div>
-
-                    <div class="form-group" id="cronGroup" style="display: none;">
-                        <label for="cronExpression">Cron 表达式</label>
-                        <input type="text" id="cronExpression" name="cronExpression" placeholder="如: 0 9 * * * (每天9点)">
-                        <small style="color: #999; display: block; margin-top: 5px;">
-                            示例: 0 9 * * * (每天9点) | 0 */2 * * * (每2小时) | 0 9 * * 1 (每周一9点)
-                        </small>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary">创建任务</button>
-                </form>
-            </div>
-
-            <!-- 任务列表 -->
-            <div class="card">
-                <h2>任务列表</h2>
-                <div class="filter-bar">
-                    <select id="statusFilter">
-                        <option value="">全部状态</option>
-                        <option value="pending">待发送</option>
-                        <option value="sent">已发送</option>
-                        <option value="failed">发送失败</option>
-                        <option value="cancelled">已取消</option>
-                    </select>
-                    <button class="btn btn-info btn-sm" onclick="loadTasks()">刷新</button>
                 </div>
-                <div id="taskList" class="task-list">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        <p>加载中...</p>
+
+                <!-- 任务列表 -->
+                <div class="card">
+                    <h2>任务列表</h2>
+                    <div class="filter-bar">
+                        <select id="statusFilter">
+                            <option value="">全部状态</option>
+                            <option value="pending">待发送</option>
+                            <option value="sent">已发送</option>
+                            <option value="failed">发送失败</option>
+                            <option value="cancelled">已取消</option>
+                        </select>
+                        <button class="btn btn-info btn-sm" onclick="loadTasks()">刷新</button>
+                    </div>
+                    <div id="taskList" class="task-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>加载中...</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- 渠道配置模态框 -->
+    <div id="channelModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeChannelModal()">&times;</span>
+            <h2>添加通知渠道</h2>
+            <form id="channelForm">
+                <div class="form-group">
+                    <label for="channelName">渠道名称 *</label>
+                    <input type="text" id="channelName" name="channelName" required placeholder="如：企业微信通知">
+                </div>
+
+                <div class="form-group">
+                    <label for="channelType">渠道类型 *</label>
+                    <select id="channelType" name="channelType" required>
+                        <option value="">请选择渠道类型</option>
+                    </select>
+                </div>
+
+                <div id="channelConfigFields" class="config-fields">
+                    <!-- 动态生成配置字段 -->
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="isDefaultChannel" name="isDefault">
+                        <label for="isDefaultChannel" style="margin-bottom: 0;">设为默认渠道</label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">添加渠道</button>
+            </form>
+        </div>
+    </div>
+
     <script>
         const API_BASE = '/api';
         let channels = [];
+        let currentUser = null;
+        let userChannels = [];
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
-            loadChannels();
-            loadTasks();
-            initEventListeners();
-            setDefaultTime();
+            checkAuthStatus();
         });
 
-        // 将 Date 转为 datetime-local 可用的本地时间字符串
-        function toLocalInputValue(date) {
-            const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-            return local.toISOString().slice(0, 16);
+        // 检查认证状态
+        async function checkAuthStatus() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                showLoginPage();
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/profile`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    currentUser = data.user;
+                    showMainApp();
+                } else {
+                    localStorage.removeItem('token');
+                    showLoginPage();
+                }
+            } catch (error) {
+                localStorage.removeItem('token');
+                showLoginPage();
+            }
         }
 
-        // 设置默认时间为当前时间+1小时（东八区本地时间）
-        function setDefaultTime() {
-            const now = new Date();
-            now.setHours(now.getHours() + 1);
-            document.getElementById('scheduledTime').value = toLocalInputValue(now);
+        // 显示登录页面
+        function showLoginPage() {
+            document.getElementById('loginPage').style.display = 'block';
+            document.getElementById('mainApp').style.display = 'none';
+            initLoginEvents();
         }
 
-        // 加载通知渠道
+        // 显示主应用
+        function showMainApp() {
+            document.getElementById('loginPage').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            document.getElementById('currentUsername').textContent = currentUser.username;
+            loadChannels();
+            loadUserChannels();
+            loadTasks();
+            initAppEvents();
+            setDefaultTime();
+        }
+
+        // 切换登录/注册标签
+        function switchTab(tab) {
+            const tabs = document.querySelectorAll('.login-tab');
+            const contents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(t => t.classList.remove('active'));
+            contents.forEach(c => c.classList.remove('active'));
+
+            if (tab === 'login') {
+                tabs[0].classList.add('active');
+                document.getElementById('loginTab').classList.add('active');
+            } else {
+                tabs[1].classList.add('active');
+                document.getElementById('registerTab').classList.add('active');
+            }
+        }
+
+        // 初始化登录事件
+        function initLoginEvents() {
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('registerForm').addEventListener('submit', handleRegister);
+        }
+
+        // 处理登录
+        async function handleLogin(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const loginData = {
+                username: formData.get('username'),
+                password: formData.get('password')
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(loginData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    localStorage.setItem('token', result.data.token);
+                    currentUser = result.data.user;
+                    showMainApp();
+                    showNotification('登录成功！', 'success');
+                } else {
+                    showNotification(result.error, 'error');
+                }
+            } catch (error) {
+                showNotification('登录失败: ' + error.message, 'error');
+            }
+        }
+
+        // 处理注册
+        async function handleRegister(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const registerData = {
+                username: formData.get('username'),
+                email: formData.get('email'),
+                password: formData.get('password')
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(registerData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showNotification('注册成功！请登录', 'success');
+                    switchTab('login');
+                    e.target.reset();
+                } else {
+                    showNotification(result.error, 'error');
+                }
+            } catch (error) {
+                showNotification('注册失败: ' + error.message, 'error');
+            }
+        }
+
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('token');
+            currentUser = null;
+            checkAuthStatus();
+        }
+
+        // 初始化应用事件
+        function initAppEvents() {
+            document.getElementById('taskForm').addEventListener('submit', submitTaskForm);
+            document.getElementById('channel').addEventListener('change', onChannelChange);
+            document.getElementById('statusFilter').addEventListener('change', loadTasks);
+            document.getElementById('isRecurring').addEventListener('change', function() {
+                document.getElementById('cronGroup').style.display = this.checked ? 'block' : 'none';
+            });
+        }
+
+        // 加载通知渠道类型
         async function loadChannels() {
             try {
-                const response = await fetch(`${API_BASE}/channels`);
+                const response = await fetch(`${API_BASE}/channels`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
                 const data = await response.json();
                 channels = data.channels;
-                
-                const channelSelect = document.getElementById('channel');
+
+                // 填充任务表单中的渠道选择
+                const taskChannelSelect = document.getElementById('channel');
                 channels.forEach(channel => {
                     const option = document.createElement('option');
                     option.value = channel.value;
                     option.textContent = channel.label;
                     option.dataset.fields = JSON.stringify(channel.config_fields);
-                    channelSelect.appendChild(option);
+                    taskChannelSelect.appendChild(option);
+                });
+
+                // 填充渠道模态框中的渠道类型选择
+                const modalChannelSelect = document.getElementById('channelType');
+                channels.forEach(channel => {
+                    const option = document.createElement('option');
+                    option.value = channel.value;
+                    option.textContent = channel.label;
+                    option.dataset.fields = JSON.stringify(channel.config_fields);
+                    modalChannelSelect.appendChild(option);
                 });
             } catch (error) {
                 showNotification('加载渠道失败: ' + error.message, 'error');
+            }
+        }
+
+        // 加载用户专属渠道
+        async function loadUserChannels() {
+            try {
+                const response = await fetch(`${API_BASE}/user/channels`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+                const data = await response.json();
+                userChannels = data.channels;
+
+                renderUserChannels();
+            } catch (error) {
+                showNotification('加载用户渠道失败: ' + error.message, 'error');
+            }
+        }
+
+        // 渲染用户渠道列表
+        function renderUserChannels() {
+            const container = document.getElementById('userChannels');
+            if (userChannels.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i>📭</i><p>暂无渠道配置</p></div>';
+                return;
+            }
+
+            container.innerHTML = '';
+            userChannels.forEach(channel => {
+                const channelItem = document.createElement('div');
+                channelItem.className = 'channel-item';
+
+                const channelTypeLabel = channels.find(c => c.value === channel.channel_type)?.label || channel.channel_type;
+
+                channelItem.innerHTML = `
+                    <div class="channel-info">
+                        <div class="channel-name">${channel.channel_name} ${channel.is_default ? '(默认)' : ''}</div>
+                        <div class="channel-type">${channelTypeLabel}</div>
+                    </div>
+                    <div class="channel-actions">
+                        <button class="btn btn-sm btn-danger" onclick="deleteUserChannel(${channel.id})">删除</button>
+                    </div>
+                `;
+                container.appendChild(channelItem);
+            });
+        }
+
+        // 打开渠道配置模态框
+        function openChannelModal() {
+            document.getElementById('channelModal').style.display = 'block';
+            document.getElementById('channelForm').addEventListener('submit', handleCreateChannel);
+            document.getElementById('channelType').addEventListener('change', onChannelTypeChange);
+        }
+
+        // 关闭渠道配置模态框
+        function closeChannelModal() {
+            document.getElementById('channelModal').style.display = 'none';
+            document.getElementById('channelForm').reset();
+            document.getElementById('channelConfigFields').innerHTML = '';
+        }
+
+        // 渠道类型改变时更新配置字段
+        function onChannelTypeChange() {
+            const channelSelect = document.getElementById('channelType');
+            const selectedOption = channelSelect.options[channelSelect.selectedIndex];
+            const configFieldsDiv = document.getElementById('channelConfigFields');
+
+            if (!selectedOption.value) {
+                configFieldsDiv.innerHTML = '';
+                return;
+            }
+
+            const fields = JSON.parse(selectedOption.dataset.fields || '[]');
+            configFieldsDiv.innerHTML = '';
+
+            fields.forEach(field => {
+                const formGroup = document.createElement('div');
+                formGroup.className = 'form-group';
+
+                const label = document.createElement('label');
+                label.textContent = getFieldLabel(field);
+                formGroup.appendChild(label);
+
+                const input = document.createElement('input');
+                input.type = field.includes('token') || field.includes('secret') ? 'password' : 'text';
+                input.id = `channelConfig_${field}`;
+                input.name = field;
+                input.placeholder = `请输入${getFieldLabel(field)}`;
+                input.required = true;
+                formGroup.appendChild(input);
+
+                configFieldsDiv.appendChild(formGroup);
+            });
+        }
+
+        // 处理创建渠道
+        async function handleCreateChannel(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const channelSelect = document.getElementById('channelType');
+            const selectedOption = channelSelect.options[channelSelect.selectedIndex];
+            const configFields = JSON.parse(selectedOption.dataset.fields || '[]');
+
+            // 构建配置对象
+            const channelConfig = {};
+            configFields.forEach(field => {
+                const value = document.getElementById(`channelConfig_${field}`).value;
+                channelConfig[field] = value;
+            });
+
+            const channelData = {
+                channel_name: formData.get('channelName'),
+                channel_type: formData.get('channelType'),
+                channel_config: channelConfig,
+                is_default: formData.get('isDefault') === 'on'
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/user/channels`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(channelData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showNotification('渠道创建成功！', 'success');
+                    closeChannelModal();
+                    loadUserChannels();
+                } else {
+                    showNotification(result.error, 'error');
+                }
+            } catch (error) {
+                showNotification('创建渠道失败: ' + error.message, 'error');
+            }
+        }
+
+        // 删除用户渠道
+        async function deleteUserChannel(channelId) {
+            if (!confirm('确定要删除这个渠道配置吗？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/user/channels/${channelId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showNotification('渠道删除成功', 'success');
+                    loadUserChannels();
+                } else {
+                    showNotification(result.error, 'error');
+                }
+            } catch (error) {
+                showNotification('删除渠道失败: ' + error.message, 'error');
             }
         }
 
@@ -463,35 +1015,74 @@
             const channelSelect = document.getElementById('channel');
             const selectedOption = channelSelect.options[channelSelect.selectedIndex];
             const configFieldsDiv = document.getElementById('configFields');
-            
+
             if (!selectedOption.value) {
                 configFieldsDiv.style.display = 'none';
                 return;
             }
-            
+
             const fields = JSON.parse(selectedOption.dataset.fields || '[]');
             configFieldsDiv.innerHTML = '';
-            
+
+            // 先显示用户已保存的渠道选项
+            const userChannelSelect = document.createElement('select');
+            userChannelSelect.id = 'userChannelSelect';
+            userChannelSelect.style.marginBottom = '15px';
+
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '选择已保存的渠道（可选）';
+            userChannelSelect.appendChild(defaultOption);
+
+            userChannels.forEach(userChannel => {
+                if (userChannel.channel_type === selectedOption.value) {
+                    const option = document.createElement('option');
+                    option.value = userChannel.id;
+                    option.textContent = `${userChannel.channel_name} ${userChannel.is_default ? '(默认)' : ''}`;
+                    userChannelSelect.appendChild(option);
+                }
+            });
+
+            if (userChannels.some(uc => uc.channel_type === selectedOption.value)) {
+                configFieldsDiv.appendChild(userChannelSelect);
+            }
+
             fields.forEach(field => {
                 const formGroup = document.createElement('div');
                 formGroup.className = 'form-group';
-                
+
                 const label = document.createElement('label');
                 label.textContent = getFieldLabel(field);
                 formGroup.appendChild(label);
-                
+
                 const input = document.createElement('input');
                 input.type = field.includes('token') || field.includes('secret') ? 'password' : 'text';
                 input.id = `config_${field}`;
                 input.name = field;
                 input.placeholder = `请输入${getFieldLabel(field)}`;
-                input.required = true;
                 formGroup.appendChild(input);
-                
+
                 configFieldsDiv.appendChild(formGroup);
             });
-            
-            configFieldsDiv.style.display = fields.length > 0 ? 'block' : 'none';
+
+            configFieldsDiv.style.display = 'block';
+
+            // 监听用户渠道选择
+            userChannelSelect.addEventListener('change', function() {
+                const selectedChannelId = this.value;
+                if (selectedChannelId) {
+                    const selectedChannel = userChannels.find(uc => uc.id == selectedChannelId);
+                    if (selectedChannel) {
+                        const config = selectedChannel.channel_config;
+                        fields.forEach(field => {
+                            const input = document.getElementById(`config_${field}`);
+                            if (input && config[field]) {
+                                input.value = config[field];
+                            }
+                        });
+                    }
+                }
+            });
         }
 
         // 获取字段中文标签
@@ -514,17 +1105,21 @@
         async function loadTasks() {
             const taskList = document.getElementById('taskList');
             const statusFilter = document.getElementById('statusFilter').value;
-            
+
             taskList.innerHTML = '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
-            
+
             try {
-                const url = statusFilter 
+                const url = statusFilter
                     ? `${API_BASE}/tasks?status=${statusFilter}&page_size=100`
                     : `${API_BASE}/tasks?page_size=100`;
-                    
-                const response = await fetch(url);
+
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
                 const data = await response.json();
-                
+
                 if (data.tasks && data.tasks.length > 0) {
                     taskList.innerHTML = '';
                     data.tasks.forEach(task => {
@@ -542,7 +1137,7 @@
         function createTaskElement(task) {
             const div = document.createElement('div');
             div.className = 'task-item';
-            
+
             const statusClass = `status-${task.status}`;
             const statusText = {
                 'pending': '待发送',
@@ -550,9 +1145,9 @@
                 'failed': '发送失败',
                 'cancelled': '已取消'
             }[task.status] || task.status;
-            
+
             const channelText = channels.find(c => c.value === task.channel)?.label || task.channel;
-            
+
             div.innerHTML = `
                 <div class="task-header">
                     <div>
@@ -575,27 +1170,27 @@
                 </div>
                 ` : ''}
             `;
-            
+
             return div;
         }
 
-        // 提交表单
-        async function submitForm(e) {
+        // 提交任务表单
+        async function submitTaskForm(e) {
             e.preventDefault();
-            
+
             const formData = new FormData(e.target);
             const channel = formData.get('channel');
             const channelSelect = document.getElementById('channel');
             const selectedOption = channelSelect.options[channelSelect.selectedIndex];
             const configFields = JSON.parse(selectedOption.dataset.fields || '[]');
-            
+
             // 构建配置对象
             const channelConfig = {};
             configFields.forEach(field => {
                 const value = document.getElementById(`config_${field}`).value;
                 channelConfig[field] = value;
             });
-            
+
             // 构建任务数据
             const scheduledTimeValue = formData.get('scheduledTime');
             const taskData = {
@@ -607,18 +1202,19 @@
                 is_recurring: formData.get('isRecurring') === 'on',
                 cron_expression: formData.get('isRecurring') === 'on' ? formData.get('cronExpression') : null
             };
-            
+
             try {
                 const response = await fetch(`${API_BASE}/tasks`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
                     },
                     body: JSON.stringify(taskData)
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (response.ok) {
                     showNotification('任务创建成功！', 'success');
                     e.target.reset();
@@ -639,14 +1235,17 @@
             if (!confirm('确定要取消这个任务吗？')) {
                 return;
             }
-            
+
             try {
                 const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (response.ok) {
                     showNotification('任务已取消', 'success');
                     loadTasks();
@@ -658,14 +1257,17 @@
             }
         }
 
-        // 初始化事件监听
-        function initEventListeners() {
-            document.getElementById('taskForm').addEventListener('submit', submitForm);
-            document.getElementById('channel').addEventListener('change', onChannelChange);
-            document.getElementById('statusFilter').addEventListener('change', loadTasks);
-            document.getElementById('isRecurring').addEventListener('change', function() {
-                document.getElementById('cronGroup').style.display = this.checked ? 'block' : 'none';
-            });
+        // 设置默认时间为当前时间+1小时（东八区本地时间）
+        function setDefaultTime() {
+            const now = new Date();
+            now.setHours(now.getHours() + 1);
+            document.getElementById('scheduledTime').value = toLocalInputValue(now);
+        }
+
+        // 将 Date 转为 datetime-local 可用的本地时间字符串
+        function toLocalInputValue(date) {
+            const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+            return local.toISOString().slice(0, 16);
         }
 
         // 显示通知
@@ -674,7 +1276,7 @@
             notification.className = `notification ${type}`;
             notification.textContent = message;
             document.body.appendChild(notification);
-            
+
             setTimeout(() => {
                 notification.remove();
             }, 3000);
