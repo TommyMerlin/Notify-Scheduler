@@ -1,10 +1,13 @@
 # 通知定时发送系统
 
-基于 ANotify 库的通知定时发送系统，支持多种通知渠道的定时和重复发送。提供完整的 Web 管理界面和 RESTful API。
+基于 [ANotify](https://github.com/TommyMerlin/ANotify) 库的通知定时发送系统，支持多种通知渠道的定时和重复发送。提供完整的 Web 管理界面和 RESTful API。
+
+![界面 UI](./assets/ui.png)
 
 ## 功能特性
 
 - ✅ **多渠道支持**: 企业微信、飞书、钉钉、PushPlus、Server酱等
+ - ✅ **多渠道支持**: 企业微信、飞书、钉钉、PushPlus、Server酱，并新增 Gotify、Ntfy、IYUU、巴法云 等第三方推送支持
 - ⏰ **定时发送**: 指定时间自动发送通知
 - 🔁 **重复任务**: 支持使用 Cron 表达式创建重复任务
 - 🌐 **Web 界面**: 美观的前端界面，支持任务的创建、查看、取消
@@ -141,6 +144,7 @@ docker-compose down
    - **通知内容**: 通知正文，支持 Markdown 格式
    - **通知渠道**: 选择发送渠道（企业微信、飞书等）
    - **渠道配置**: 根据选择的渠道填写相应配置（如 Webhook URL）
+  - **已保存渠道**: 如果你已在“我的通知渠道”中保存了渠道，可在下拉中直接选择已保存项（下拉样式与其他表单控件一致），选中后会自动填充该渠道的配置字段。
    - **计划发送时间**: 选择发送时间
    - **重复任务**: 勾选后可设置 Cron 表达式创建重复任务
 
@@ -154,6 +158,12 @@ docker-compose down
 - **筛选任务**: 使用状态筛选器查看不同状态的任务
 - **取消任务**: 对于待发送的任务，点击"取消任务"按钮可取消
 - **自动刷新**: 任务列表每 30 秒自动刷新
+
+### 渠道管理（前端）
+
+- 在“创建通知任务”表单下方的“我的通知渠道”板块可以添加/管理个人渠道配置。
+- 每个渠道项支持 **编辑** 与 **删除** 操作：编辑时会弹出模态框，允许修改渠道名称、配置字段及是否设为默认（渠道类型不可变更以保证安全）。
+- 在创建任务时可从“选择已保存的渠道”下拉中快速选择，UI 已优化下拉样式以与表单一致，移动端也增加了触控友好性。
 
 ## 生产环境部署
 
@@ -294,6 +304,8 @@ docker stop notify-scheduler
 
 ## 支持的通知渠道
 
+具体见 [ANotify](https://github.com/TommyMerlin/ANotify)
+
 | 渠道 | channel 值 | 配置字段 |
 |------|-----------|---------|
 | 企业微信 | `wecom` | corpid, corpsecret, agentid |
@@ -303,6 +315,10 @@ docker stop notify-scheduler
 | 钉钉Webhook | `dingtalk_webhook` | webhook_url |
 | PushPlus | `pushplus` | token |
 | Server酱 | `serverchan` | token |
+| Gotify | `gotify` | server_url, token |
+| Ntfy (ntfy.sh) | `ntfy` | server_url, topic |
+| IYUU | `iyuu` | token (可选 `server_url`) |
+| 巴法云 | `bafayun` | token (可选 `server_url`) |
 
 详细配置示例请查看 `config_examples.json`。
 
