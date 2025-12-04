@@ -708,6 +708,100 @@
                 flex: 1;
                 min-width: 100px;
             }
+
+            /* 编辑模态框移动端优化 */
+            #editTaskModal .modal-content {
+                margin: 5% auto;
+                padding: 15px;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+
+            #editTaskModal form {
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            #editTaskModal .form-group {
+                margin-bottom: 0;
+            }
+
+            #editTaskModal .modal-content h2 {
+                font-size: 1.3rem;
+                margin-bottom: 15px;
+            }
+
+            /* 编辑表单底部按钮优化 */
+            #editTaskModal form > div:last-child {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                margin-top: 20px;
+            }
+        }
+
+        /* 编辑模态框样式优化 */
+        #editTaskModal .modal-content {
+            max-width: 600px;
+            transform: scale(0.9);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        #editTaskModal form {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        /* 禁用字段样式 */
+        .form-group input:disabled,
+        .form-group select:disabled,
+        .form-group textarea:disabled {
+            background-color: #f8f9fa;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        /* 警告提示样式 */
+        .warning-hint {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-top: 5px;
+            font-size: 0.85rem;
+            color: #856404;
+        }
+
+        /* 信息提示样式 */
+        .info-hint {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+            color: #0c5460;
+        }
+
+        /* 编辑表单滚动条优化 */
+        #editTaskModal form::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #editTaskModal form::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #editTaskModal form::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.2);
+            border-radius: 2px;
+        }
+
+        #editTaskModal form::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.4);
         }
 
         /* 滚动条美化优化 - 适用于所有设备 */
@@ -1042,6 +1136,67 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary">添加渠道</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 任务编辑模态框 -->
+    <div id="editTaskModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditTaskModal()">&times;</span>
+            <h2>编辑任务</h2>
+            <form id="editTaskForm">
+                <input type="hidden" id="editTaskId" name="taskId">
+
+                <div class="form-group">
+                    <label for="editTitle">通知标题 *</label>
+                    <input type="text" id="editTitle" name="title" placeholder="请输入通知标题" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="editContent">通知内容 *</label>
+                    <textarea id="editContent" name="content" placeholder="请输入通知内容" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>通知渠道</label>
+                    <select id="editChannel" disabled>
+                        <option value="">渠道已确定，不可更改</option>
+                    </select>
+                    <div class="warning-hint">
+                        ⚠️ 出于安全考虑，编辑任务时不能更改通知渠道
+                    </div>
+                </div>
+
+                <div id="editConfigFields" class="config-fields" style="display: none;">
+                    <!-- 动态生成配置字段 -->
+                </div>
+
+                <div class="form-group">
+                    <label for="editScheduledTime">计划发送时间 *</label>
+                    <input type="datetime-local" id="editScheduledTime" name="scheduledTime" required>
+                </div>
+
+                <div class="form-group">
+                    <label>重复任务设置</label>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="editIsRecurring" name="isRecurring" disabled>
+                        <label for="editIsRecurring" style="margin-bottom: 0;">重复任务（不可修改）</label>
+                    </div>
+                    <div class="warning-hint">
+                        ⚠️ 重复任务设置不可更改，如需修改请创建新任务
+                    </div>
+                </div>
+
+                <div id="editCronGroup" class="form-group" style="display: none;">
+                    <label for="editCronExpression">Cron 表达式</label>
+                    <input type="text" id="editCronExpression" name="cronExpression" readonly style="background: #f5f5f5;">
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">保存修改</button>
+                    <button type="button" class="btn btn-danger" onclick="closeEditTaskModal()" style="flex: 1;">取消</button>
+                </div>
             </form>
         </div>
     </div>
@@ -1568,6 +1723,7 @@
                 ${task.error_msg ? `<div style="color: #e74c3c; margin-top: 10px;">❌ 错误: ${escapeHtml(task.error_msg)}</div>` : ''}
                 ${task.status === 'pending' ? `
                 <div class="task-actions">
+                    <button class="btn btn-sm btn-info" onclick="editTask(${task.id})">编辑</button>
                     <button class="btn btn-sm btn-danger" onclick="cancelTask(${task.id})">取消任务</button>
                 </div>
                 ` : ''}
@@ -1915,6 +2071,256 @@
 
         // 存储刷新间隔ID，便于管理
         window.taskRefreshInterval = setInterval(loadTasks, 30000);
+
+        // 任务编辑相关函数
+
+        // 编辑任务
+        async function editTask(taskId) {
+            try {
+                // 先获取任务详细信息
+                const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    showNotification('获取任务失败: ' + error.error, 'error');
+                    return;
+                }
+
+                const task = await response.json();
+
+                // 调试输出
+                console.log('Task received from API:', {
+                    id: task.id,
+                    title: task.title,
+                    channel: task.channel,
+                    channel_config: task.channel_config,
+                    channel_config_type: typeof task.channel_config
+                });
+
+                // 显示编辑模态框
+                showEditTaskModal(task);
+
+            } catch (error) {
+                showNotification('获取任务失败: ' + error.message, 'error');
+            }
+        }
+
+        // 显示编辑任务模态框
+        function showEditTaskModal(task) {
+            // 添加加载动画
+            const modal = document.getElementById('editTaskModal');
+            const modalContent = modal.querySelector('.modal-content');
+
+            // 重置表单
+            document.getElementById('editTaskForm').reset();
+
+            // 填充表单数据
+            document.getElementById('editTaskId').value = task.id;
+            document.getElementById('editTitle').value = task.title;
+            document.getElementById('editContent').value = task.content;
+
+            // 设置渠道信息
+            const channelSelect = document.getElementById('editChannel');
+            const channelOption = channels.find(c => c.value === task.channel);
+            if (channelOption) {
+                channelSelect.innerHTML = `<option value="${task.channel}" selected>${channelOption.label}</option>`;
+            }
+
+            // 设置时间
+            const scheduledTime = new Date(task.scheduled_time);
+            // 转换为本地时间并格式化
+            const localTime = new Date(scheduledTime.getTime() - scheduledTime.getTimezoneOffset() * 60000);
+            document.getElementById('editScheduledTime').value = localTime.toISOString().slice(0, 16);
+
+            // 设置重复任务信息
+            const isRecurringCheckbox = document.getElementById('editIsRecurring');
+            isRecurringCheckbox.checked = task.is_recurring;
+
+            if (task.is_recurring) {
+                document.getElementById('editCronGroup').style.display = 'block';
+                document.getElementById('editCronExpression').value = task.cron_expression;
+            }
+
+            // 填充渠道配置字段
+            fillEditConfigFields(task.channel, task.channel_config);
+
+            // 显示模态框（带动画效果）
+            modal.style.display = 'block';
+            setTimeout(() => {
+                modalContent.style.transform = 'scale(1)';
+                modalContent.style.opacity = '1';
+            }, 10);
+
+            // 绑定表单提交事件
+            document.getElementById('editTaskForm').addEventListener('submit', handleEditTaskSubmit);
+
+            // 聚焦到第一个输入框
+            setTimeout(() => {
+                document.getElementById('editTitle').focus();
+            }, 300);
+        }
+
+        // 填充编辑表单的配置字段
+        function fillEditConfigFields(channelType, channelConfig) {
+            const channel = channels.find(c => c.value === channelType);
+            if (!channel) return;
+
+            // channel.config_fields 可能是数组（来自 API 的原生 JSON）或字符串（已序列化的 JSON），
+            // 兼容两种情况以避免 JSON.parse 在接收到数组时抛出错误（数组会被 toString 成非 JSON 字符串）。
+            let configFields = [];
+            try {
+                if (typeof channel.config_fields === 'string') {
+                    configFields = JSON.parse(channel.config_fields || '[]');
+                } else if (Array.isArray(channel.config_fields)) {
+                    configFields = channel.config_fields;
+                } else {
+                    configFields = [];
+                }
+            } catch (err) {
+                console.error('解析 channel.config_fields 出错，回退为空数组:', err, channel.config_fields);
+                configFields = [];
+            }
+            const configFieldsDiv = document.getElementById('editConfigFields');
+
+            // 调试输出
+            console.log('fillEditConfigFields called with:', {
+                channelType,
+                channelConfigType: typeof channelConfig,
+                channelConfigValue: channelConfig
+            });
+
+            // 后端现在返回正确的JSON对象，所以直接使用
+            let existingConfig = {};
+            try {
+                existingConfig = channelConfig || {};
+                // 确保是对象
+                if (typeof existingConfig !== 'object') {
+                    console.warn('channelConfig is not an object, trying to parse:', existingConfig);
+                    existingConfig = JSON.parse(existingConfig || '{}');
+                }
+            } catch (error) {
+                console.error('Error processing channelConfig:', error);
+                existingConfig = {};
+            }
+
+            configFieldsDiv.innerHTML = `
+                <div class="info-hint">
+                    ℹ️ 当前渠道配置已保存，可在此修改
+                </div>
+            `;
+
+            configFields.forEach(field => {
+                const formGroup = document.createElement('div');
+                formGroup.className = 'form-group';
+
+                const label = document.createElement('label');
+                label.textContent = getFieldLabel(field);
+                formGroup.appendChild(label);
+
+                const input = document.createElement('input');
+                input.type = field.includes('token') || field.includes('secret') ? 'password' : 'text';
+                input.id = `editConfig_${field}`;
+                input.name = field;
+                input.placeholder = `请输入${getFieldLabel(field)}`;
+                input.value = existingConfig[field] || '';
+                input.required = true;
+                formGroup.appendChild(input);
+
+                configFieldsDiv.appendChild(formGroup);
+            });
+
+            configFieldsDiv.style.display = 'block';
+        }
+
+        // 关闭编辑任务模态框
+        function closeEditTaskModal() {
+            const modal = document.getElementById('editTaskModal');
+            const modalContent = modal.querySelector('.modal-content');
+
+            // 添加关闭动画
+            modalContent.style.transform = 'scale(0.9)';
+            modalContent.style.opacity = '0';
+
+            setTimeout(() => {
+                modal.style.display = 'none';
+                document.getElementById('editTaskForm').reset();
+                document.getElementById('editTaskForm').removeEventListener('submit', handleEditTaskSubmit);
+                modalContent.style.transform = 'scale(0.9)';
+                modalContent.style.opacity = '0';
+            }, 300);
+        }
+
+        // 处理编辑任务表单提交
+        async function handleEditTaskSubmit(e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const taskId = formData.get('taskId');
+            const channelSelect = document.getElementById('editChannel');
+            const channelType = channelSelect.options[0].value;
+            const channel = channels.find(c => c.value === channelType);
+            // 兼容 channel.config_fields 为数组或字符串的情况，避免 JSON.parse 在接收数组时报错
+            let configFields = [];
+            try {
+                if (channel) {
+                    if (typeof channel.config_fields === 'string') {
+                        configFields = JSON.parse(channel.config_fields || '[]');
+                    } else if (Array.isArray(channel.config_fields)) {
+                        configFields = channel.config_fields;
+                    } else {
+                        configFields = [];
+                    }
+                }
+            } catch (err) {
+                console.error('解析 channel.config_fields 出错，回退为空数组:', err, channel && channel.config_fields);
+                configFields = [];
+            }
+
+            // 构建配置对象
+            const channelConfig = {};
+            configFields.forEach(field => {
+                const value = document.getElementById(`editConfig_${field}`).value;
+                channelConfig[field] = value;
+            });
+
+            // 构建任务数据
+            const scheduledTimeValue = formData.get('scheduledTime');
+            const taskData = {
+                title: formData.get('title'),
+                content: formData.get('content'),
+                channel: channelType,
+                scheduled_time: scheduledTimeValue ? `${scheduledTimeValue}:00` : null,
+                channel_config: channelConfig
+                // 注意：不包含 is_recurring 和 cron_expression，因为后端不允许修改这些字段
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify(taskData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showNotification('任务更新成功！', 'success');
+                    closeEditTaskModal();
+                    loadTasks();
+                } else {
+                    showNotification('更新失败: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showNotification('更新失败: ' + error.message, 'error');
+            }
+        }
     </script>
 </body>
 </html>

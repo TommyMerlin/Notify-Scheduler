@@ -6,6 +6,7 @@ import enum
 import hashlib
 import os
 import secrets
+import json
 
 Base = declarative_base()
 
@@ -99,10 +100,15 @@ class UserChannel(Base):
 
     def to_dict(self):
         """转换为字典"""
+        # 安全解析 channel_config
         try:
-            config = eval(self.channel_config) if self.channel_config else {}
-        except:
-            config = {}
+            config = json.loads(self.channel_config) if self.channel_config else {}
+        except (json.JSONDecodeError, TypeError):
+            # 如果解析失败，尝试使用 eval（兼容旧数据）
+            try:
+                config = eval(self.channel_config) if self.channel_config else {}
+            except:
+                config = {}
 
         return {
             'id': self.id,
@@ -154,6 +160,16 @@ class NotifyTask(Base):
 
     def to_dict(self):
         """转换为字典"""
+        # 安全解析 channel_config
+        try:
+            channel_config = json.loads(self.channel_config) if self.channel_config else {}
+        except (json.JSONDecodeError, TypeError):
+            # 如果解析失败，尝试使用 eval（兼容旧数据）
+            try:
+                channel_config = eval(self.channel_config) if self.channel_config else {}
+            except:
+                channel_config = {}
+
         return {
             'id': self.id,
             'title': self.title,
@@ -165,7 +181,8 @@ class NotifyTask(Base):
             'error_msg': self.error_msg,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'is_recurring': self.is_recurring,
-            'cron_expression': self.cron_expression
+            'cron_expression': self.cron_expression,
+            'channel_config': channel_config
         }
 
 
