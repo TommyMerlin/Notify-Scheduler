@@ -180,6 +180,8 @@
         .task-list {
             max-height: 600px;
             overflow-y: auto;
+            padding: 2px; /* 为可能的阴影效果提供缓冲空间 */
+            margin: -2px; /* 抵消内边距对布局的影响 */
         }
 
         .task-item {
@@ -188,13 +190,11 @@
             padding: 15px;
             margin-bottom: 15px;
             border-radius: 8px;
-            transition: all 0.3s;
+            transition: all 0.3s ease;
+            position: relative;
         }
 
-        .task-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
+        /* 原有的悬停效果已在响应式部分重新定义 */
 
         .task-header {
             display: flex;
@@ -404,9 +404,208 @@
             gap: 10px;
         }
 
+        /* 响应式设计增强 */
+
+        /* 平板设备适配 */
+        @media (max-width: 1200px) {
+            .container {
+                padding: 0 15px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            header h1 {
+                font-size: 2.2rem;
+            }
+
+            .main-content {
+                gap: 15px;
+            }
+        }
+
+        /* 小平板设备适配 */
         @media (max-width: 968px) {
             .main-content {
                 grid-template-columns: 1fr;
+            }
+
+            header {
+                flex-direction: column;
+                text-align: center;
+                gap: 20px;
+            }
+
+            header h1 {
+                font-size: 2rem;
+            }
+
+            .user-info {
+                align-self: center;
+            }
+        }
+
+        /* 手机设备适配 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 0 10px;
+            }
+
+            header {
+                margin-bottom: 25px;
+            }
+
+            header h1 {
+                font-size: 1.8rem;
+                margin-bottom: 8px;
+            }
+
+            header p {
+                font-size: 1rem;
+            }
+
+            .card {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+
+            .card h2 {
+                font-size: 1.3rem;
+            }
+
+            .form-group input,
+            .form-group textarea,
+            .form-group select {
+                padding: 10px;
+                font-size: 16px; /* 防止 iOS 自动缩放 */
+            }
+
+            .btn {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+
+            .task-meta {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .task-header {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .filter-bar {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .notification {
+                max-width: calc(100vw - 40px);
+                right: 20px;
+                left: 20px;
+            }
+
+            .channel-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .channel-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .modal-content {
+                margin: 10% auto;
+                padding: 15px;
+                width: 95%;
+            }
+
+            .login-container {
+                margin: 50px 10px;
+                max-width: none;
+            }
+
+            .login-card {
+                padding: 25px;
+            }
+        }
+
+        /* 小屏手机设备适配 */
+        @media (max-width: 480px) {
+            header h1 {
+                font-size: 1.5rem;
+            }
+
+            .card {
+                padding: 12px;
+            }
+
+            .card h2 {
+                font-size: 1.2rem;
+            }
+
+            .task-item {
+                padding: 12px;
+            }
+
+            .status-badge,
+            .channel-badge {
+                font-size: 0.75rem;
+                padding: 3px 8px;
+            }
+
+            .btn-sm {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+
+            .task-actions {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .task-actions .btn {
+                width: 100%;
+            }
+        }
+
+        /* 超宽屏适配 */
+        @media (min-width: 1400px) {
+            .container {
+                max-width: 1600px;
+            }
+
+            .main-content {
+                gap: 30px;
+            }
+
+            .task-list {
+                max-height: 700px;
+            }
+        }
+
+        /* 横屏模式适配 */
+        @media (max-height: 600px) and (orientation: landscape) {
+            .login-container {
+                margin: 20px auto;
+            }
+
+            .modal-content {
+                margin: 2% auto;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+
+            .task-list {
+                max-height: 400px;
             }
         }
 
@@ -461,6 +660,209 @@
 
         .close:hover {
             color: #000;
+        }
+
+        /* 响应式交互优化 */
+
+        /* 增加可点击区域 */
+        .btn,
+        .login-tab,
+        .task-item,
+        .channel-item {
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        /* 移动端按钮最小点击区域 */
+        @media (max-width: 768px) {
+            .btn {
+                min-height: 44px; /* iOS 推荐的最小点击区域 */
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .btn-sm {
+                min-height: 36px;
+                padding: 8px 12px;
+            }
+
+            /* 优化小屏幕触摸体验 */
+            .form-group input,
+            .form-group textarea,
+            .form-group select {
+                min-height: 44px;
+                padding: 10px 12px;
+            }
+
+            /* 任务操作按钮优化 */
+            .task-actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin-top: 12px;
+            }
+
+            .task-actions .btn {
+                flex: 1;
+                min-width: 100px;
+            }
+        }
+
+        /* 滚动条美化优化 - 适用于所有设备 */
+        .task-list {
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: rgba(102, 126, 234, 0.3) transparent; /* Firefox */
+        }
+
+        .task-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .task-list::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 3px;
+        }
+
+        .task-list::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.3);
+            border-radius: 3px;
+            transition: background 0.3s ease;
+        }
+
+        .task-list:hover::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.6);
+        }
+
+        .task-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.8);
+        }
+
+        /* 触摸设备完全隐藏滚动条 */
+        @media (pointer: coarse) {
+            * {
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .task-list {
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none; /* Firefox */
+                -ms-overflow-style: none; /* IE/Edge */
+            }
+
+            .task-list::-webkit-scrollbar {
+                display: none; /* Chrome/Safari */
+            }
+        }
+
+        /* 鼠标设备显示更精致的滚动条 */
+        @media (pointer: fine) {
+            .task-list {
+                scrollbar-width: thin;
+                scrollbar-color: rgba(102, 126, 234, 0.2) transparent;
+            }
+
+            .task-list::-webkit-scrollbar {
+                width: 4px;
+            }
+
+            .task-list::-webkit-scrollbar-track {
+                background: transparent;
+            }
+
+            .task-list::-webkit-scrollbar-thumb {
+                background: rgba(102, 126, 234, 0.2);
+                border-radius: 2px;
+                transition: all 0.2s ease;
+            }
+
+            .task-list:hover::-webkit-scrollbar-thumb {
+                background: rgba(102, 126, 234, 0.4);
+                width: 6px;
+            }
+
+            .task-list::-webkit-scrollbar-thumb:hover {
+                background: rgba(102, 126, 234, 0.6);
+            }
+        }
+
+        /* 悬停效果优化 - 避免触发滚动条 */
+        @media (hover: hover) and (pointer: fine) {
+            .btn:hover {
+                transform: translateY(-2px);
+            }
+
+            .task-item {
+                transition: all 0.3s ease;
+                position: relative;
+            }
+
+            .task-item:hover {
+                background: #f0f4ff;
+                border-left-color: #5568d3;
+                box-shadow: 0 3px 15px rgba(102, 126, 234, 0.15);
+                /* 移除 transform: translateX(5px); 避免触发水平滚动条 */
+            }
+
+            .channel-item:hover {
+                background: #f0f0f0;
+            }
+
+            .login-tab:hover {
+                background: rgba(102, 126, 234, 0.05);
+            }
+        }
+
+        /* 无悬停设备使用触摸反馈 */
+        @media (hover: none) and (pointer: coarse) {
+            .btn:active {
+                transform: scale(0.98);
+            }
+
+            .task-item:active {
+                transform: scale(0.98);
+            }
+
+            .channel-item:active {
+                background: #f0f0f0;
+            }
+
+            .login-tab:active {
+                background: rgba(102, 126, 234, 0.1);
+            }
+        }
+
+        /* 高DPI屏幕优化 */
+        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+            .status-badge,
+            .channel-badge {
+                border-width: 0.5px;
+            }
+
+            .task-item {
+                border-left-width: 2px;
+            }
+
+            .btn {
+                border-width: 0.5px;
+            }
+        }
+
+        /* 深色模式支持（可选） */
+        @media (prefers-color-scheme: dark) {
+            /* 这里可以添加深色模式支持，当前为浅色模式 */
+        }
+
+        /* 减少动画（根据用户偏好） */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
         }
     </style>
 </head>
@@ -1304,6 +1706,215 @@
 
         // 自动刷新任务列表（每30秒）
         setInterval(loadTasks, 30000);
+
+        // 响应式增强功能
+        function initResponsiveFeatures() {
+            // 添加触摸反馈
+            document.addEventListener('touchstart', function(e) {
+                if (e.target.classList.contains('btn') ||
+                    e.target.classList.contains('task-item') ||
+                    e.target.closest('.btn') ||
+                    e.target.closest('.task-item')) {
+                    const element = e.target.classList.contains('btn') ? e.target :
+                                  e.target.closest('.btn') || e.target.closest('.task-item');
+                    element.style.transform = 'scale(0.98)';
+                    element.style.transition = 'transform 0.1s ease';
+                }
+            });
+
+            document.addEventListener('touchend', function(e) {
+                if (e.target.classList.contains('btn') ||
+                    e.target.classList.contains('task-item') ||
+                    e.target.closest('.btn') ||
+                    e.target.closest('.task-item')) {
+                    const element = e.target.classList.contains('btn') ? e.target :
+                                  e.target.closest('.btn') || e.target.closest('.task-item');
+                    setTimeout(() => {
+                        element.style.transform = 'scale(1)';
+                    }, 100);
+                }
+            });
+
+            // 优化移动端滚动体验
+            if ('ontouchstart' in window) {
+                document.body.style.webkitOverflowScrolling = 'touch';
+
+                // 为移动端优化输入框焦点
+                const inputs = document.querySelectorAll('input, textarea, select');
+                inputs.forEach(input => {
+                    input.addEventListener('focus', function() {
+                        // 延迟滚动以确保输入框可见
+                        setTimeout(() => {
+                            this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 300);
+                    });
+                });
+            }
+
+            // 智能布局调整
+            adjustLayoutForScreenSize();
+            window.addEventListener('resize', debounce(adjustLayoutForScreenSize, 250));
+            window.addEventListener('orientationchange', debounce(adjustLayoutForScreenSize, 500));
+        }
+
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // 根据屏幕尺寸调整布局
+        function adjustLayoutForScreenSize() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const isMobile = width <= 768;
+            const isSmallMobile = width <= 480;
+
+            // 调整任务列表高度
+            const taskList = document.getElementById('taskList');
+            if (taskList && taskList.style.display !== 'none') {
+                if (isMobile) {
+                    const viewportHeight = window.innerHeight;
+                    const headerHeight = document.querySelector('header')?.offsetHeight || 200;
+                    const formHeight = document.querySelector('.card')?.offsetHeight || 400;
+                    const maxListHeight = Math.max(300, viewportHeight - headerHeight - formHeight - 150);
+                    taskList.style.maxHeight = `${maxListHeight}px`;
+                } else if (width >= 1400) {
+                    taskList.style.maxHeight = '700px';
+                } else {
+                    taskList.style.maxHeight = '600px';
+                }
+            }
+
+            // 移动端优化
+            if (isMobile) {
+                // 确保模态框在移动端正常显示
+                const modals = document.querySelectorAll('.modal');
+                modals.forEach(modal => {
+                    if (modal.style.display === 'block') {
+                        const modalContent = modal.querySelector('.modal-content');
+                        if (modalContent) {
+                            modalContent.style.maxHeight = '80vh';
+                            modalContent.style.overflowY = 'auto';
+                        }
+                    }
+                });
+
+                // 优化通知显示
+                const notifications = document.querySelectorAll('.notification');
+                notifications.forEach(notification => {
+                    notification.style.fontSize = isSmallMobile ? '14px' : '16px';
+                    notification.style.padding = isSmallMobile ? '12px 20px' : '15px 25px';
+                });
+            }
+        }
+
+        // 优化移动端表单体验
+        function optimizeMobileForms() {
+            // 检测是否为移动设备
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+            if (isMobile) {
+                // 为移动设备优化输入类型
+                const emailInputs = document.querySelectorAll('input[type="email"]');
+                emailInputs.forEach(input => {
+                    input.setAttribute('autocomplete', 'email');
+                });
+
+                const passwordInputs = document.querySelectorAll('input[type="password"]');
+                passwordInputs.forEach(input => {
+                    input.setAttribute('autocomplete', 'current-password');
+                });
+
+                // 优化数字输入
+                const numberInputs = document.querySelectorAll('input[type="number"], input[type="tel"]');
+                numberInputs.forEach(input => {
+                    input.setAttribute('inputmode', 'numeric');
+                    input.setAttribute('pattern', '[0-9]*');
+                });
+            }
+        }
+
+        // 添加下拉刷新功能（仅移动端）
+        function initPullToRefresh() {
+            let startY = 0;
+            let isPulling = false;
+            const pullThreshold = 80;
+
+            const taskList = document.getElementById('taskList');
+            if (!taskList) return;
+
+            taskList.addEventListener('touchstart', function(e) {
+                if (taskList.scrollTop === 0) {
+                    startY = e.touches[0].clientY;
+                    isPulling = true;
+                }
+            });
+
+            taskList.addEventListener('touchmove', function(e) {
+                if (!isPulling) return;
+
+                const currentY = e.touches[0].clientY;
+                const diff = currentY - startY;
+
+                if (diff > 0 && diff < pullThreshold) {
+                    taskList.style.transform = `translateY(${diff * 0.5}px)`;
+                    taskList.style.transition = 'none';
+                }
+            });
+
+            taskList.addEventListener('touchend', function(e) {
+                if (!isPulling) return;
+
+                isPulling = false;
+                taskList.style.transform = '';
+                taskList.style.transition = 'transform 0.3s ease';
+
+                const currentY = e.changedTouches[0].clientY;
+                const diff = currentY - startY;
+
+                if (diff > pullThreshold) {
+                    loadTasks();
+                    showNotification('正在刷新...', 'success');
+                }
+            });
+        }
+
+        // 页面加载完成后初始化响应式功能
+        document.addEventListener('DOMContentLoaded', function() {
+            // 在原有的 checkAuthStatus() 调用后添加
+            setTimeout(() => {
+                initResponsiveFeatures();
+                optimizeMobileForms();
+
+                // 如果是移动设备且支持触摸，启用下拉刷新
+                if ('ontouchstart' in window && window.innerWidth <= 768) {
+                    initPullToRefresh();
+                }
+            }, 1000);
+        });
+
+        // 监听页面可见性变化，优化性能
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // 页面隐藏时降低刷新频率
+                clearInterval(window.taskRefreshInterval);
+            } else {
+                // 页面显示时恢复正常刷新频率
+                window.taskRefreshInterval = setInterval(loadTasks, 30000);
+                loadTasks(); // 立即刷新数据
+            }
+        });
+
+        // 存储刷新间隔ID，便于管理
+        window.taskRefreshInterval = setInterval(loadTasks, 30000);
     </script>
 </body>
 </html>
