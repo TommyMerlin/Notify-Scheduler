@@ -109,6 +109,33 @@
             transition: border-color 0.3s;
         }
 
+        /* 已保存渠道下拉样式，使其与其他表单控件一致 */
+        .user-channel-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #333;
+            background: white;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            margin-bottom: 15px;
+            background-image: linear-gradient(45deg, transparent 50%, #667eea 50%),
+                              linear-gradient(135deg, #667eea 50%, transparent 50%),
+                              linear-gradient(to right, #ccc, #ccc);
+            background-position: calc(100% - 20px) calc(50% - 6px), calc(100% - 15px) calc(50% - 6px), 100% 0;
+            background-size: 6px 6px, 6px 6px, 1px 1.5em;
+            background-repeat: no-repeat;
+        }
+
+        .user-channel-select:focus {
+            border-color: #667eea;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(102,126,234,0.06);
+        }
+
         .form-group input:focus,
         .form-group textarea:focus,
         .form-group select:focus {
@@ -1112,6 +1139,7 @@
             <span class="close" onclick="closeChannelModal()">&times;</span>
             <h2>添加通知渠道</h2>
             <form id="channelForm">
+                <input type="hidden" id="editingChannelId" value="">
                 <div class="form-group">
                     <label for="channelName">渠道名称 *</label>
                     <input type="text" id="channelName" name="channelName" required placeholder="如：企业微信通知">
@@ -1364,6 +1392,17 @@
             document.getElementById('isRecurring').addEventListener('change', function() {
                 document.getElementById('cronGroup').style.display = this.checked ? 'block' : 'none';
             });
+            // 渠道表单提交与类型变更监听（绑定一次）
+            const channelForm = document.getElementById('channelForm');
+            if (channelForm && !channelForm._bound) {
+                channelForm.addEventListener('submit', handleChannelFormSubmit);
+                channelForm._bound = true;
+            }
+            const channelTypeSel = document.getElementById('channelType');
+            if (channelTypeSel && !channelTypeSel._bound) {
+                channelTypeSel.addEventListener('change', onChannelTypeChange);
+                channelTypeSel._bound = true;
+            }
         }
 
         // 加载通知渠道类型
@@ -1439,6 +1478,7 @@
                         <div class="channel-type">${channelTypeLabel}</div>
                     </div>
                     <div class="channel-actions">
+                        <button class="btn btn-sm btn-info" onclick="editUserChannel(${channel.id})">编辑</button>
                         <button class="btn btn-sm btn-danger" onclick="deleteUserChannel(${channel.id})">删除</button>
                     </div>
                 `;
@@ -1448,9 +1488,15 @@
 
         // 打开渠道配置模态框
         function openChannelModal() {
+            // 以创建模式打开模态框
+            document.getElementById('editingChannelId').value = '';
             document.getElementById('channelModal').style.display = 'block';
-            document.getElementById('channelForm').addEventListener('submit', handleCreateChannel);
-            document.getElementById('channelType').addEventListener('change', onChannelTypeChange);
+            document.getElementById('channelForm').reset();
+            document.getElementById('channelConfigFields').innerHTML = '';
+            document.getElementById('channelType').disabled = false;
+            // 设置标题为“添加通知渠道”
+            const title = document.querySelector('#channelModal .modal-content h2');
+            if (title) title.textContent = '添加通知渠道';
         }
 
         // 关闭渠道配置模态框
@@ -1458,6 +1504,8 @@
             document.getElementById('channelModal').style.display = 'none';
             document.getElementById('channelForm').reset();
             document.getElementById('channelConfigFields').innerHTML = '';
+            document.getElementById('editingChannelId').value = '';
+            document.getElementById('channelType').disabled = false;
         }
 
         // 渠道类型改变时更新配置字段
@@ -1494,49 +1542,65 @@
             });
         }
 
-        // 处理创建渠道
-        async function handleCreateChannel(e) {
+        // 处理渠道表单（创建或编辑）
+        async function handleChannelFormSubmit(e) {
             e.preventDefault();
             const formData = new FormData(e.target);
+            const editingId = document.getElementById('editingChannelId').value;
             const channelSelect = document.getElementById('channelType');
             const selectedOption = channelSelect.options[channelSelect.selectedIndex];
-            const configFields = JSON.parse(selectedOption.dataset.fields || '[]');
+            const configFields = JSON.parse(selectedOption?.dataset?.fields || '[]');
 
             // 构建配置对象
             const channelConfig = {};
             configFields.forEach(field => {
-                const value = document.getElementById(`channelConfig_${field}`).value;
+                const el = document.getElementById(`channelConfig_${field}`) || document.getElementById(`editConfig_${field}`) || document.getElementById(`config_${field}`);
+                const value = el ? el.value : '';
                 channelConfig[field] = value;
             });
 
-            const channelData = {
+            const commonData = {
                 channel_name: formData.get('channelName'),
-                channel_type: formData.get('channelType'),
                 channel_config: channelConfig,
                 is_default: formData.get('isDefault') === 'on'
             };
 
             try {
-                const response = await fetch(`${API_BASE}/user/channels`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify(channelData)
-                });
+                let response;
+                if (!editingId) {
+                    // 创建
+                    const postData = Object.assign({}, commonData, { channel_type: formData.get('channelType') });
+                    response = await fetch(`${API_BASE}/user/channels`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: JSON.stringify(postData)
+                    });
+                } else {
+                    // 编辑（只允许修改名称、配置、是否默认）
+                    response = await fetch(`${API_BASE}/user/channels/${editingId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                        },
+                        body: JSON.stringify(commonData)
+                    });
+                }
 
                 const result = await response.json();
 
                 if (response.ok) {
-                    showNotification('渠道创建成功！', 'success');
+                    showNotification(editingId ? '渠道更新成功！' : '渠道创建成功！', 'success');
                     closeChannelModal();
                     loadUserChannels();
                 } else {
-                    showNotification(result.error, 'error');
+                    showNotification(result.error || '操作失败', 'error');
                 }
             } catch (error) {
-                showNotification('创建渠道失败: ' + error.message, 'error');
+                showNotification('操作失败: ' + error.message, 'error');
             }
         }
 
@@ -1567,6 +1631,42 @@
             }
         }
 
+        // 编辑用户渠道（打开模态框并填充数据）
+        function editUserChannel(channelId) {
+            const channel = userChannels.find(uc => uc.id == channelId);
+            if (!channel) {
+                showNotification('渠道不存在', 'error');
+                return;
+            }
+
+            document.getElementById('editingChannelId').value = channel.id;
+            document.getElementById('channelModal').style.display = 'block';
+            // 更新模态框标题
+            const title = document.querySelector('#channelModal .modal-content h2');
+            if (title) title.textContent = '编辑通知渠道';
+
+            // 填充基本信息
+            document.getElementById('channelName').value = channel.channel_name || '';
+            const channelTypeSel = document.getElementById('channelType');
+            channelTypeSel.value = channel.channel_type;
+            channelTypeSel.disabled = true; // 不允许修改渠道类型
+
+            // 触发生成配置字段
+            onChannelTypeChange();
+
+            // 填充配置字段
+            const selectedOption = channelTypeSel.options[channelTypeSel.selectedIndex];
+            const fields = JSON.parse(selectedOption.dataset.fields || '[]');
+            const cfg = channel.channel_config || {};
+            fields.forEach(field => {
+                const input = document.getElementById(`channelConfig_${field}`);
+                if (input) input.value = cfg[field] || '';
+            });
+
+            // 填充默认渠道选项
+            document.getElementById('isDefaultChannel').checked = !!channel.is_default;
+        }
+
         // 渠道改变时更新配置字段
         function onChannelChange() {
             const channelSelect = document.getElementById('channel');
@@ -1584,7 +1684,7 @@
             // 先显示用户已保存的渠道选项
             const userChannelSelect = document.createElement('select');
             userChannelSelect.id = 'userChannelSelect';
-            userChannelSelect.style.marginBottom = '15px';
+            userChannelSelect.className = 'user-channel-select';
 
             const defaultOption = document.createElement('option');
             defaultOption.value = '';
