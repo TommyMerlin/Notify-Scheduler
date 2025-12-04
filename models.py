@@ -20,6 +20,10 @@ class NotifyChannel(enum.Enum):
     DINGTALK_WEBHOOK = "dingtalk_webhook"  # 钉钉Webhook
     PUSHPLUS = "pushplus"  # PushPlus
     SERVERCHAN = "serverchan"  # Server酱
+    GOTIFY = "gotify"  # Gotify
+    NTFY = "ntfy"  # ntfy.sh
+    IYUU = "iyuu"  # IYUU 推送
+    BAFAYUN = "bafayun"  # 巴法云
     EMAIL = "email"  # 邮件
 
     def __str__(self):

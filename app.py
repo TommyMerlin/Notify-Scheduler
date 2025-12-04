@@ -389,6 +389,27 @@ def get_channels():
             'label': 'Server酱',
             'config_fields': ['token']
         }
+        ,
+        {
+            'value': 'gotify',
+            'label': 'Gotify',
+            'config_fields': ['server_url', 'token']
+        },
+        {
+            'value': 'ntfy',
+            'label': 'Ntfy (ntfy.sh)',
+            'config_fields': ['server_url', 'topic']
+        },
+        {
+            'value': 'iyuu',
+            'label': 'IYUU',
+            'config_fields': ['token']
+        },
+        {
+            'value': 'bafayun',
+            'label': '巴法云',
+            'config_fields': ['token']
+        }
     ]
     return jsonify({'channels': channels})
 
