@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>通知定时发送系统</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2NjdlZWEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM3NjRiYTIiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB4PSIxNiIgeT0iMTYiIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgcng9IjI4IiBmaWxsPSJ1cmwoI2dyYWQpIi8+PHBhdGggZD0iTTMyIDUyYzAtNC40MTggMy41ODItOCA4LThoNDhjNC40MTggMCA4IDMuNTgyIDggOHYyNGMwIDQuNDE4LTMuNTgyIDgtOCA4SDQwYy00LjQxOCAwLTgtMy41ODItOC04VjUyeiIgZmlsbD0iI2ZmZiIgb3BhY2l0eT0iMC45NSIvPjxwYXRoIGQ9Ik0zNiA1MGwyOCAyMiAyOC0yMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNzY0YmEyIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjkyIiBjeT0iNDAiIHI9IjEwIiBmaWxsPSIjMjdhZTYwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNCIvPjxwYXRoIGQ9Ik04OCA0MGwzIDMgNS02IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+">
     <style>
         * {
             margin: 0;
@@ -24,12 +25,42 @@
         }
 
         header {
-            text-align: center;
             color: white;
             margin-bottom: 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            text-align: left;
+            gap: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .brand-logo {
+            width: 68px;
+            height: 68px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.12);
+            padding: 8px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .brand-logo svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .brand-copy h1 {
+            margin-bottom: 6px;
+        }
+
+        .brand-copy p {
+            margin: 0;
         }
 
         header h1 {
@@ -462,6 +493,16 @@
                 flex-direction: column;
                 text-align: center;
                 gap: 20px;
+            }
+
+            .brand {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .brand-logo {
+                width: 56px;
+                height: 56px;
             }
 
             header h1 {
@@ -1040,9 +1081,33 @@
     <div id="mainApp" style="display: none;">
         <div class="container">
             <header>
-                <div>
-                    <h1>📬 通知定时发送系统</h1>
-                    <p>支持多渠道定时发送通知，让您的消息准时到达</p>
+                <div class="brand">
+                    <div class="brand-logo" aria-hidden="true">
+                        <svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" focusable="false" role="presentation">
+                            <defs>
+                                <linearGradient id="brandLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#667eea" />
+                                    <stop offset="100%" stop-color="#764ba2" />
+                                </linearGradient>
+                                <filter id="brandLogoShadow" x="-10%" y="-10%" width="120%" height="120%">
+                                    <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#4c3e8a" flood-opacity="0.35" />
+                                </filter>
+                            </defs>
+                            <g filter="url(#brandLogoShadow)">
+                                <rect x="16" y="16" width="96" height="96" rx="28" fill="url(#brandLogoGradient)" />
+                                <path d="M32 52c0-4.418 3.582-8 8-8h48c4.418 0 8 3.582 8 8v24c0 4.418-3.582 8-8 8H40c-4.418 0-8-3.582-8-8V52z" fill="#ffffff" opacity="0.95" />
+                                <path d="M36 50l28 22 28-22" fill="none" stroke="#764ba2" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M50 78l14 12 14-12" fill="none" stroke="#764ba2" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+                                <path d="M48 38c0-6.627 5.373-12 12-12h8c6.627 0 12 5.373 12 12" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" />
+                                <circle cx="92" cy="40" r="10" fill="#27ae60" stroke="#ffffff" stroke-width="4" />
+                                <path d="M88 40l3 3 5-6" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            </g>
+                        </svg>
+                    </div>
+                    <div class="brand-copy">
+                        <h1>📬 通知定时发送系统</h1>
+                        <p>支持多渠道定时发送通知，让您的消息准时到达</p>
+                    </div>
                 </div>
                 <div class="user-info">
                     <span>👤 <span id="currentUsername"></span></span>
