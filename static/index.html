@@ -1194,8 +1194,8 @@
                             <option value="created_at">按创建时间</option>
                         </select>
                         <select id="sortOrder">
-                            <option value="desc" selected>降序</option>
-                            <option value="asc">升序</option>
+                            <option value="asc" selected>升序</option>
+                            <option value="desc">降序</option>
                         </select>
                         <button class="btn btn-info btn-sm" onclick="loadTasks()">刷新</button>
                     </div>
@@ -1844,7 +1844,7 @@
             const sortFieldSelect = document.getElementById('sortField');
             const sortOrderSelect = document.getElementById('sortOrder');
             const sortField = sortFieldSelect ? sortFieldSelect.value : 'scheduled_time';
-            const sortOrder = sortOrderSelect ? sortOrderSelect.value : 'desc';
+            const sortOrder = sortOrderSelect ? sortOrderSelect.value : 'asc';
 
             taskList.innerHTML = '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
 

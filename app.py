@@ -196,8 +196,8 @@ def list_tasks():
     - status: 过滤状态 (pending/sent/failed/cancelled)
     - page: 页码，默认 1
     - page_size: 每页数量，默认 20
-    - sort_by: 排序字段 (scheduled_time/id/status/created_at)，默认 created_at
-    - sort_order: 排序方向 (asc/desc)，默认 desc
+    - sort_by: 排序字段 (scheduled_time/id/status/created_at)，默认 scheduled_time
+    - sort_order: 排序方向 (asc/desc)，默认 asc
     """
     try:
         db = get_db()
@@ -214,8 +214,8 @@ def list_tasks():
                     return jsonify({'error': f'无效的状态值: {status}'}), 400
 
             # 排序
-            sort_by = request.args.get('sort_by', 'created_at')
-            sort_order = request.args.get('sort_order', 'desc').lower()
+            sort_by = request.args.get('sort_by', 'scheduled_time')
+            sort_order = request.args.get('sort_order', 'asc').lower()
 
             sort_fields = {
                 'scheduled_time': NotifyTask.scheduled_time,
