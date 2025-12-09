@@ -326,12 +326,14 @@
 
         .filter-bar {
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
             margin-bottom: 20px;
         }
 
         .filter-bar select {
             flex: 1;
+            min-width: 160px;
         }
 
         .empty-state {
@@ -1185,6 +1187,16 @@
                             <option value="failed">发送失败</option>
                             <option value="cancelled">已取消</option>
                         </select>
+                        <select id="sortField">
+                            <option value="scheduled_time" selected>按计划时间</option>
+                            <option value="id">按任务ID</option>
+                            <option value="status">按任务状态</option>
+                            <option value="created_at">按创建时间</option>
+                        </select>
+                        <select id="sortOrder">
+                            <option value="desc" selected>降序</option>
+                            <option value="asc">升序</option>
+                        </select>
                         <button class="btn btn-info btn-sm" onclick="loadTasks()">刷新</button>
                     </div>
                     <div id="taskList" class="task-list">
@@ -1454,6 +1466,8 @@
             document.getElementById('taskForm').addEventListener('submit', submitTaskForm);
             document.getElementById('channel').addEventListener('change', onChannelChange);
             document.getElementById('statusFilter').addEventListener('change', loadTasks);
+            document.getElementById('sortField').addEventListener('change', loadTasks);
+            document.getElementById('sortOrder').addEventListener('change', loadTasks);
             document.getElementById('isRecurring').addEventListener('change', function() {
                 document.getElementById('cronGroup').style.display = this.checked ? 'block' : 'none';
             });
@@ -1827,15 +1841,20 @@
         async function loadTasks() {
             const taskList = document.getElementById('taskList');
             const statusFilter = document.getElementById('statusFilter').value;
+            const sortFieldSelect = document.getElementById('sortField');
+            const sortOrderSelect = document.getElementById('sortOrder');
+            const sortField = sortFieldSelect ? sortFieldSelect.value : 'scheduled_time';
+            const sortOrder = sortOrderSelect ? sortOrderSelect.value : 'desc';
 
             taskList.innerHTML = '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';
 
             try {
-                const url = statusFilter
-                    ? `${API_BASE}/tasks?status=${statusFilter}&page_size=100`
-                    : `${API_BASE}/tasks?page_size=100`;
+                const params = new URLSearchParams({ page_size: '100' });
+                if (statusFilter) params.append('status', statusFilter);
+                if (sortField) params.append('sort_by', sortField);
+                if (sortOrder) params.append('sort_order', sortOrder.toLowerCase());
 
-                const response = await fetch(url, {
+                const response = await fetch(`${API_BASE}/tasks?${params.toString()}`, {
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
                     }

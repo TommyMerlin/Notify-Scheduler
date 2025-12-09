@@ -196,6 +196,8 @@ def list_tasks():
     - status: 过滤状态 (pending/sent/failed/cancelled)
     - page: 页码，默认 1
     - page_size: 每页数量，默认 20
+    - sort_by: 排序字段 (scheduled_time/id/status/created_at)，默认 created_at
+    - sort_order: 排序方向 (asc/desc)，默认 desc
     """
     try:
         db = get_db()
@@ -211,12 +213,31 @@ def list_tasks():
                 except ValueError:
                     return jsonify({'error': f'无效的状态值: {status}'}), 400
 
+            # 排序
+            sort_by = request.args.get('sort_by', 'created_at')
+            sort_order = request.args.get('sort_order', 'desc').lower()
+
+            sort_fields = {
+                'scheduled_time': NotifyTask.scheduled_time,
+                'id': NotifyTask.id,
+                'status': NotifyTask.status,
+                'created_at': NotifyTask.created_at
+            }
+
+            if sort_by not in sort_fields:
+                return jsonify({'error': f'无效的排序字段: {sort_by}'}), 400
+
+            if sort_order not in ('asc', 'desc'):
+                return jsonify({'error': f'无效的排序方向: {sort_order}，可选 asc 或 desc'}), 400
+
+            sort_clause = sort_fields[sort_by].asc() if sort_order == 'asc' else sort_fields[sort_by].desc()
+
             # 分页
             page = int(request.args.get('page', 1))
             page_size = int(request.args.get('page_size', 20))
 
             total = query.count()
-            tasks = query.order_by(NotifyTask.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+            tasks = query.order_by(sort_clause).offset((page - 1) * page_size).limit(page_size).all()
 
             return jsonify({
                 'total': total,
