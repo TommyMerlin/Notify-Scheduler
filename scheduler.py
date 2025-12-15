@@ -94,12 +94,26 @@ class NotifyScheduler:
                     content=task.content
                 )
                 
-                # 更新任务状态为已发送
+                # 更新任务状态
                 if not task.is_recurring:
                     task.status = NotifyStatus.SENT
                 task.sent_time = datetime.now()
                 task.error_msg = None
                 
+                # 关键：重复任务执行成功后，滚动更新下一次执行时间（用于列表展示）
+                if task.is_recurring and task.cron_expression:
+                    try:
+                        from apscheduler.triggers.cron import CronTrigger
+                        trigger = CronTrigger.from_crontab(task.cron_expression)
+                        # 以“本次实际执行时间”为基准，计算下一次
+                        base_time = datetime.now()
+                        next_run = trigger.get_next_fire_time(None, base_time)
+                        if next_run:
+                            task.scheduled_time = next_run
+                    except Exception as e:
+                        # 不影响本次发送结果，但记录日志
+                        logger.warning(f"任务 {task_id} 更新下一次执行时间失败: {str(e)}")
+
                 logger.info(f"任务 {task_id} 执行成功")
                 
             except Exception as e:

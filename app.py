@@ -134,17 +134,39 @@ def create_task():
     try:
         data = request.get_json()
 
+        # 兼容：重复任务不再强制要求 scheduled_time，由后端根据 cron 计算下一次执行时间
+        is_recurring = bool(data.get('is_recurring', False))
+        cron_expression = data.get('cron_expression')
+
         # 验证必填字段
-        required_fields = ['title', 'content', 'channel', 'scheduled_time', 'channel_config']
+        required_fields = ['title', 'content', 'channel', 'channel_config']
+        # 非重复任务必须提供 scheduled_time
+        if not is_recurring:
+            required_fields.append('scheduled_time')
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'缺少必填字段: {field}'}), 400
 
-        # 解析时间
-        try:
-            scheduled_time = datetime.fromisoformat(data['scheduled_time'])
-        except ValueError:
-            return jsonify({'error': '时间格式错误，请使用 ISO 格式，如: 2024-12-01T10:00:00'}), 400
+        scheduled_time = None
+        if is_recurring:
+            if not cron_expression:
+                return jsonify({'error': '重复任务必须提供 cron_expression'}), 400
+            # 由 cron 计算下一次运行时间（用于列表展示与排序）
+            try:
+                from apscheduler.triggers.cron import CronTrigger
+                trigger = CronTrigger.from_crontab(cron_expression)
+                next_run = trigger.get_next_fire_time(None, datetime.now())
+                if not next_run:
+                    return jsonify({'error': '无法根据 cron_expression 计算下一次执行时间'}), 400
+                scheduled_time = next_run
+            except Exception as e:
+                return jsonify({'error': f'Cron 表达式无效: {str(e)}'}), 400
+        else:
+            # 解析时间
+            try:
+                scheduled_time = datetime.fromisoformat(data['scheduled_time'])
+            except ValueError:
+                return jsonify({'error': '时间格式错误，请使用 ISO 格式，如: 2024-12-01T10:00:00'}), 400
 
         # 验证通知渠道
         try:
@@ -163,8 +185,8 @@ def create_task():
                 channel=channel,
                 scheduled_time=scheduled_time,
                 channel_config=json.dumps(data['channel_config'], ensure_ascii=False),
-                is_recurring=data.get('is_recurring', False),
-                cron_expression=data.get('cron_expression')
+                is_recurring=is_recurring,
+                cron_expression=cron_expression if is_recurring else None
             )
 
             db.add(task)

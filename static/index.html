@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>通知定时发送系统</title>
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2NjdlZWEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM3NjRiYTIiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB4PSIxNiIgeT0iMTYiIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgcng9IjI4IiBmaWxsPSJ1cmwoI2dyYWQpIi8+PHBhdGggZD0iTTMyIDUyYzAtNC40MTggMy41ODItOCA4LThoNDhjNC40MTggMCA4IDMuNTgyIDggOHYyNGMwIDQuNDE4LTMuNTgyIDgtOCA4SDQwYy00LjQxOCAwLTgtMy41ODItOC04VjUyeiIgZmlsbD0iI2ZmZiIgb3BhY2l0eT0iMC45NSIvPjxwYXRoIGQ9Ik0zNiA1MGwyOCAyMiAyOC0yMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNzY0YmEyIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjkyIiBjeT0iNDAiIHI9IjEwIiBmaWxsPSIjMjdhZTYwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNCIvPjxwYXRoIGQ9Ik04OCA0MGwzIDMgNS02IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImdyYWQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiM2NjdlZWEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiM3NjRiYTIiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB4PSIxNiIgeT0iMTYiIHdpZHRoPSI5NiIgaGVpZ2h0PSI5NiIgcng9IjI4IiBmaWxsPSJ1cmwoI2dyYWQpIi8+PHBhdGggZD0iTTMyIDUyYzAtNC40MTggMy41ODItOCA4LThoNDhjNC40MTggMCA4IDMuNTgyIDggOHYyNGMwIDQuNDE4LTMuNTgyIDgtOCA4SDQwYy00LjQxOCAwLTgtMy41ODItOC04VjUyeiIgZmlsbD0iI2ZmZiIgb3BhY2l0eT0iMC45NSIvPjxwYXRoIGQ9Ik0zNiA1MGwyOCAyMiAyOC0yMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNzY0YmEyIiBzdHJva2Utd2lkdGg9IjQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxjaXJjbGUgY3g9IjkyIiBjeT0iNDAiIHI9IjEwIiBmaWxsPSIjMjdhZTYwIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iNCIvPjxwYXRoIGQ9Ik08OCA0MGwzIDMgNS02IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PC9zdmc+">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -1707,6 +1707,21 @@
             document.getElementById('sortOrder').addEventListener('change', loadTasks);
             document.getElementById('isRecurring').addEventListener('change', function() {
                 document.getElementById('cronGroup').style.display = this.checked ? 'block' : 'none';
+
+                // 勾选重复任务时：不可再设置计划发送时间
+                const scheduledTimeInput = document.getElementById('scheduledTime');
+                if (scheduledTimeInput) {
+                    if (this.checked) {
+                        scheduledTimeInput.disabled = true;
+                        scheduledTimeInput.removeAttribute('required');
+                        scheduledTimeInput.value = '';
+                    } else {
+                        scheduledTimeInput.disabled = false;
+                        scheduledTimeInput.setAttribute('required', 'required');
+                        // 恢复默认时间
+                        setDefaultTime();
+                    }
+                }
             });
             // 渠道表单提交与类型变更监听（绑定一次）
             const channelForm = document.getElementById('channelForm');
@@ -2126,6 +2141,8 @@
 
             const channelText = channels.find(c => c.value === task.channel)?.label || task.channel;
 
+            const scheduleLabel = task.is_recurring ? '📅 下一次执行时间' : '📅 计划时间';
+
             div.innerHTML = `
                 <div class="task-header">
                     <div>
@@ -2136,7 +2153,7 @@
                 </div>
                 <div class="task-content">${escapeHtml(task.content)}</div>
                 <div class="task-meta">
-                    <span>📅 计划时间: ${formatDateTime(task.scheduled_time)}</span>
+                    <span>${scheduleLabel}: ${formatDateTime(task.scheduled_time)}</span>
                     ${task.sent_time ? `<span>✅ 发送时间: ${formatDateTime(task.sent_time)}</span>` : ''}
                     ${task.is_recurring ? `<span>🔁 重复任务: ${task.cron_expression}</span>` : ''}
                     <span>🆔 ID: ${task.id}</span>
@@ -2170,17 +2187,23 @@
                 channelConfig[field] = value;
             });
 
+            const isRecurring = formData.get('isRecurring') === 'on';
+
             // 构建任务数据
             const scheduledTimeValue = formData.get('scheduledTime');
             const taskData = {
                 title: formData.get('title'),
                 content: formData.get('content'),
                 channel: channel,
-                scheduled_time: scheduledTimeValue ? `${scheduledTimeValue}:00` : null,
+                // 重复任务不提交 scheduled_time，由后端根据 cron_expression 计算
+                scheduled_time: isRecurring ? undefined : (scheduledTimeValue ? `${scheduledTimeValue}:00` : null),
                 channel_config: channelConfig,
-                is_recurring: formData.get('isRecurring') === 'on',
-                cron_expression: formData.get('isRecurring') === 'on' ? formData.get('cronExpression') : null
+                is_recurring: isRecurring,
+                cron_expression: isRecurring ? formData.get('cronExpression') : null
             };
+
+            // 移除 undefined 字段，避免后端 required_fields 判断误差
+            Object.keys(taskData).forEach(k => taskData[k] === undefined && delete taskData[k]);
 
             try {
                 const response = await fetch(`${API_BASE}/tasks`, {
@@ -2200,6 +2223,12 @@
                     setDefaultTime();
                     document.getElementById('configFields').style.display = 'none';
                     document.getElementById('cronGroup').style.display = 'none';
+                    // 重置“重复任务”禁用态
+                    const scheduledTimeInput = document.getElementById('scheduledTime');
+                    if (scheduledTimeInput) {
+                        scheduledTimeInput.disabled = false;
+                        scheduledTimeInput.setAttribute('required', 'required');
+                    }
                     loadTasks();
                 } else {
                     showNotification('创建失败: ' + result.error, 'error');
