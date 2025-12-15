@@ -1452,6 +1452,11 @@
                             <option value="failed">发送失败</option>
                             <option value="cancelled">已取消</option>
                         </select>
+                        <select id="recurringFilter">
+                            <option value="">全部任务</option>
+                            <option value="recurring">重复任务</option>
+                            <option value="non_recurring">一次性任务</option>
+                        </select>
                         <select id="sortField">
                             <option value="scheduled_time" selected>按计划时间</option>
                             <option value="id">按任务ID</option>
@@ -1731,6 +1736,8 @@
             document.getElementById('taskForm').addEventListener('submit', submitTaskForm);
             document.getElementById('channel').addEventListener('change', onChannelChange);
             document.getElementById('statusFilter').addEventListener('change', loadTasks);
+            const recurringFilterEl = document.getElementById('recurringFilter');
+            if (recurringFilterEl) recurringFilterEl.addEventListener('change', loadTasks);
             document.getElementById('sortField').addEventListener('change', loadTasks);
             document.getElementById('sortOrder').addEventListener('change', loadTasks);
             document.getElementById('isRecurring').addEventListener('change', function() {
@@ -2121,6 +2128,8 @@
         async function loadTasks() {
             const taskList = document.getElementById('taskList');
             const statusFilter = document.getElementById('statusFilter').value;
+            const recurringFilterEl = document.getElementById('recurringFilter');
+            const recurringFilter = recurringFilterEl ? recurringFilterEl.value : '';
             const sortFieldSelect = document.getElementById('sortField');
             const sortOrderSelect = document.getElementById('sortOrder');
             const sortField = sortFieldSelect ? sortFieldSelect.value : 'scheduled_time';
@@ -2143,9 +2152,19 @@
 
                 if (data.tasks && data.tasks.length > 0) {
                     taskList.innerHTML = '';
-                    data.tasks.forEach(task => {
-                        taskList.appendChild(createTaskElement(task));
-                    });
+                    let tasks = data.tasks;
+                    // 前端筛选重复任务（后端暂不支持该 query 参数）
+                    if (recurringFilter === 'recurring') {
+                        tasks = tasks.filter(t => !!t.is_recurring);
+                    } else if (recurringFilter === 'non_recurring') {
+                        tasks = tasks.filter(t => !t.is_recurring);
+                    }
+
+                    if (tasks.length > 0) {
+                        tasks.forEach(task => taskList.appendChild(createTaskElement(task)));
+                    } else {
+                        taskList.innerHTML = '<div class="empty-state"><i>📭</i><p>暂无任务</p></div>';
+                    }
                 } else {
                     taskList.innerHTML = '<div class="empty-state"><i>📭</i><p>暂无任务</p></div>';
                 }
