@@ -383,6 +383,11 @@
             border: 1px solid rgba(15, 23, 42, 0.08);
         }
 
+        .task-item.recurring {
+            border: 1.5px solid rgba(93, 242, 200, 0.65);
+            box-shadow: 0 18px 40px rgba(93, 242, 200, 0.12), var(--card-shadow);
+        }
+
         .task-item::after {
             content: '';
             position: absolute;
@@ -464,6 +469,29 @@
             padding: 5px 14px;
             border-radius: 999px;
             font-size: 0.82rem;
+        }
+
+        /* 重复任务醒目标识 */
+        .recurring-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #0f172a;
+            background: linear-gradient(135deg, rgba(93, 242, 200, 0.15), rgba(95, 123, 255, 0.1));
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            box-shadow: 0 10px 22px rgba(16, 24, 40, 0.18);
+            vertical-align: middle;
+        }
+
+        .recurring-badge::before {
+            content: '↻';
+            display: inline-block;
+            font-weight: 900;
         }
 
         .filter-bar {
@@ -2130,6 +2158,7 @@
         function createTaskElement(task) {
             const div = document.createElement('div');
             div.className = 'task-item';
+            if (task.is_recurring) div.classList.add('recurring');
 
             const statusClass = `status-${task.status}`;
             const statusText = {
@@ -2146,7 +2175,10 @@
             div.innerHTML = `
                 <div class="task-header">
                     <div>
-                        <div class="task-title">${escapeHtml(task.title)}</div>
+                        <div class="task-title">
+                            ${escapeHtml(task.title)}
+                            ${task.is_recurring ? `<span class="recurring-badge"></span>` : ''}
+                        </div>
                         <span class="status-badge ${statusClass}">${statusText}</span>
                         <span class="channel-badge">${channelText}</span>
                     </div>
