@@ -2093,7 +2093,7 @@
             const selectedOption = channelSelect.options[channelSelect.selectedIndex];
             const configFieldsDiv = document.getElementById('configFields');
 
-            if (!selectedOption.value) {
+            if (!selectedOption || !selectedOption.value) {
                 configFieldsDiv.style.display = 'none';
                 return;
             }
@@ -2144,22 +2144,39 @@
 
             configFieldsDiv.style.display = 'block';
 
+            // 辅助函数：根据用户渠道ID填充配置字段
+            function populateFromUserChannel(selectedChannelId) {
+                if (!selectedChannelId) return;
+                const selectedChannel = userChannels.find(uc => uc.id == selectedChannelId);
+                if (selectedChannel) {
+                    const config = selectedChannel.channel_config || {};
+                    fields.forEach(field => {
+                        const input = document.getElementById(`config_${field}`);
+                        if (input) input.value = config[field] || '';
+                    });
+                }
+            }
+
             // 监听用户渠道选择
             userChannelSelect.addEventListener('change', function() {
                 const selectedChannelId = this.value;
                 if (selectedChannelId) {
-                    const selectedChannel = userChannels.find(uc => uc.id == selectedChannelId);
-                    if (selectedChannel) {
-                        const config = selectedChannel.channel_config;
-                        fields.forEach(field => {
-                            const input = document.getElementById(`config_${field}`);
-                            if (input && config[field]) {
-                                input.value = config[field];
-                            }
-                        });
-                    }
+                    populateFromUserChannel(selectedChannelId);
                 }
             });
+
+            // 自动选中并加载“默认”渠道（若存在），若无默认但只有一条已保存配置也自动加载
+            const defaultSaved = userChannels.find(uc => uc.channel_type === selectedOption.value && uc.is_default);
+            if (defaultSaved) {
+                userChannelSelect.value = defaultSaved.id;
+                populateFromUserChannel(defaultSaved.id);
+            } else {
+                const savedForType = userChannels.filter(uc => uc.channel_type === selectedOption.value);
+                if (savedForType.length === 1) {
+                    userChannelSelect.value = savedForType[0].id;
+                    populateFromUserChannel(savedForType[0].id);
+                }
+            }
         }
 
         // 获取字段中文标签
