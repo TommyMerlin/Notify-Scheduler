@@ -172,6 +172,7 @@
             grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
             gap: 28px;
             margin-bottom: 40px;
+            align-items: start; /* allow columns to stretch */
         }
 
         .mobile-tabs {
@@ -209,6 +210,10 @@
             border: 1px solid var(--card-border);
             box-shadow: var(--card-shadow);
             backdrop-filter: blur(18px);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0; /* allow proper overflow in children */
         }
 
         .card h2 {
@@ -370,6 +375,27 @@
             border-radius: var(--radius-sm);
             background: rgba(15, 23, 42, 0.02);
             border: 1px solid rgba(15, 23, 42, 0.05);
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: none !important; /* override previous fixed max-height values */
+        }
+
+        /* Cap the task-list height so it won't grow indefinitely — once exceeding this it will scroll */
+        #taskList,
+        .task-list {
+            /* keep flexible behavior but limit maximum height */
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: min(720px, calc(100vh - 260px)) !important; /* cap height relative to viewport */
+            overflow-y: auto;
+        }
+
+        /* Slightly smaller cap on narrow screens to account for taller header/controls */
+        @media (max-width: 768px) {
+            #taskList,
+            .task-list {
+                max-height: calc(100vh - 300px) !important;
+            }
         }
 
         .task-item {
@@ -1288,6 +1314,34 @@
                 transition-duration: 0.01ms !important;
             }
         }
+
+        /* Ensure columns can be equal-height and the task-list scrollbar stretches with the card height */
+        .main-content {
+            /* keep existing grid layout but allow children to stretch to match the tallest column */
+            align-items: start;
+        }
+
+        /* Make cards use a column flex layout so their inner area can grow/shrink predictably */
+        .card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0; /* allow proper overflow in children */
+        }
+
+        /* Ensure card sections (grid items) don't impose a min-height that prevents shrinking */
+        .card-section {
+            min-height: 0;
+        }
+
+        /* Make the task list flexible: take remaining vertical space and allow its internal scrollbar to reflect the card height */
+        #taskList,
+        .task-list {
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: none !important; /* override previous fixed max-height values */
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -1992,7 +2046,7 @@
                 } else {
                     showNotification(result.error, 'error');
                 }
-            } catch (error) {
+            } catch ( error) {
                 showNotification('删除渠道失败: ' + error.message, 'error');
             }
         }
