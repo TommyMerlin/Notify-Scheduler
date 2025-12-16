@@ -343,6 +343,16 @@
             box-shadow: 0 22px 45px rgba(58, 69, 255, 0.45);
         }
 
+        .btn-ghost {
+            background: rgba(15, 23, 42, 0.06);
+            color: var(--text-strong);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
+        .btn-ghost:hover {
+            background: rgba(15, 23, 42, 0.12);
+        }
+
         .btn-sm {
             padding: 8px 16px;
             font-size: 13px;
@@ -1009,6 +1019,11 @@
             backdrop-filter: blur(12px);
         }
 
+        .modal.show .modal-content {
+            transform: scale(1);
+            opacity: 1;
+        }
+
         .close {
             color: rgba(15, 23, 42, 0.4);
             float: right;
@@ -1107,6 +1122,54 @@
             transform: scale(0.9);
             opacity: 0;
             transition: all 0.3s ease;
+        }
+
+        #confirmModal .modal-content {
+            max-width: 420px;
+            text-align: center;
+            transform: scale(0.94);
+            opacity: 0;
+            transition: all 0.22s ease;
+            padding: 26px 28px;
+        }
+
+        #confirmModal .confirm-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            background: rgba(255, 95, 109, 0.1);
+            border: 1px solid rgba(255, 95, 109, 0.25);
+            color: #e11d48;
+            display: grid;
+            place-items: center;
+            font-size: 24px;
+            margin: 0 auto 14px;
+        }
+
+        #confirmModal h3 {
+            margin: 0 0 8px;
+            font-size: 1.2rem;
+        }
+
+        #confirmModal .confirm-message {
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        #confirmModal .confirm-actions {
+            margin-top: 18px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        #confirmModal .confirm-actions .btn {
+            flex: 1;
+        }
+
+        #confirmModal.show .modal-content {
+            transform: scale(1);
+            opacity: 1;
         }
 
         #editTaskModal form {
@@ -1530,6 +1593,19 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 二次确认模态框 -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content">
+            <div class="confirm-icon">⚠️</div>
+            <h3 id="confirmTitle">确认操作</h3>
+            <p id="confirmMessage" class="confirm-message">确认要执行此操作吗？</p>
+            <div class="confirm-actions">
+                <button id="confirmCancelBtn" class="btn btn-sm btn-ghost">再想想</button>
+                <button id="confirmOkBtn" class="btn btn-sm btn-danger">确认</button>
             </div>
         </div>
     </div>
@@ -2360,11 +2436,94 @@
             }
         }
 
+        // 自定义二次确认弹窗
+        function showConfirmDialog({
+            title = '确认操作',
+            message = '请确认是否继续',
+            confirmText = '确认',
+            cancelText = '再想想'
+        } = {}) {
+            return new Promise(resolve => {
+                const modal = document.getElementById('confirmModal');
+                const titleEl = document.getElementById('confirmTitle');
+                const messageEl = document.getElementById('confirmMessage');
+                const confirmBtn = document.getElementById('confirmOkBtn');
+                const cancelBtn = document.getElementById('confirmCancelBtn');
+
+                // 如果元素缺失则回退到原生 confirm
+                if (!modal || !titleEl || !messageEl || !confirmBtn || !cancelBtn) {
+                    resolve(confirm(message));
+                    return;
+                }
+
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                confirmBtn.textContent = confirmText;
+                cancelBtn.textContent = cancelText;
+
+                const removeListeners = () => {
+                    confirmBtn.removeEventListener('click', onConfirm);
+                    cancelBtn.removeEventListener('click', onCancel);
+                    modal.removeEventListener('click', onBackdrop);
+                    document.removeEventListener('keydown', onKeydown);
+                };
+
+                const closeModal = () => {
+                    modal.classList.remove('show');
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                    }, 180);
+                    removeListeners();
+                };
+
+                const onConfirm = () => {
+                    closeModal();
+                    resolve(true);
+                };
+
+                const onCancel = () => {
+                    closeModal();
+                    resolve(false);
+                };
+
+                const onBackdrop = (e) => {
+                    if (e.target === modal) {
+                        onCancel();
+                    }
+                };
+
+                const onKeydown = (e) => {
+                    if (e.key === 'Escape') {
+                        onCancel();
+                    }
+                };
+
+                confirmBtn.addEventListener('click', onConfirm);
+                cancelBtn.addEventListener('click', onCancel);
+                modal.addEventListener('click', onBackdrop);
+                document.addEventListener('keydown', onKeydown);
+
+                modal.style.display = 'block';
+                // 下一帧再加 show 类，确保动画能正常触发；兜底用 setTimeout
+                const addShowClass = () => modal.classList.add('show');
+                if (typeof requestAnimationFrame === 'function') {
+                    requestAnimationFrame(addShowClass);
+                } else {
+                    setTimeout(addShowClass, 16);
+                }
+            });
+        }
+
         // 取消任务
         async function cancelTask(taskId) {
-            if (!confirm('确定要取消这个任务吗？')) {
-                return;
-            }
+            const confirmed = await showConfirmDialog({
+                title: '取消任务',
+                message: '确定要取消这个任务吗？此操作不可恢复。',
+                confirmText: '确认取消',
+                cancelText: '保留任务'
+            });
+
+            if (!confirmed) return;
 
             try {
                 const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
