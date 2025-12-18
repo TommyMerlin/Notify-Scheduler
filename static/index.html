@@ -2271,6 +2271,21 @@
             return labels[field] || field;
         }
 
+        // 将 cron 表达式中的星期数字从 Sunday-first (0=Sun) 转换为 Monday-first (0=Mon)
+        // 转换规则：new = (old + 6) % 7
+        function convertCronExpressionForBackend(expr) {
+            if (!expr || typeof expr !== 'string') return expr;
+            const parts = expr.trim().split(/\s+/);
+            if (parts.length < 5) return expr; // 非标准 5 字段 cron，直接返回原样
+            // 星期字段通常是最后一项（支持 5+ 字段时取最后一项）
+            const idx = parts.length - 1;
+            parts[idx] = parts[idx].replace(/\b[0-6]\b/g, (m) => {
+                const n = parseInt(m, 10);
+                return String((n + 6) % 7);
+            });
+            return parts.join(' ');
+        }
+
         // 加载任务列表
         async function loadTasks() {
             const taskList = document.getElementById('taskList');
@@ -2387,6 +2402,13 @@
 
             const isRecurring = formData.get('isRecurring') === 'on';
 
+            // 处理并兼容转换 cron 表达式（只在重复任务时）
+            let cronForBackend = null;
+            if (isRecurring) {
+                const rawCron = (formData.get('cronExpression') || '').trim();
+                cronForBackend = rawCron ? convertCronExpressionForBackend(rawCron) : null;
+            }
+
             // 构建任务数据
             const scheduledTimeValue = formData.get('scheduledTime');
             const taskData = {
@@ -2397,7 +2419,7 @@
                 scheduled_time: isRecurring ? undefined : (scheduledTimeValue ? `${scheduledTimeValue}:00` : null),
                 channel_config: channelConfig,
                 is_recurring: isRecurring,
-                cron_expression: isRecurring ? formData.get('cronExpression') : null
+                cron_expression: isRecurring ? cronForBackend : null
             };
 
             // 移除 undefined 字段，避免后端 required_fields 判断误差
