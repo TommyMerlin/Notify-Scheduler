@@ -1,0 +1,108 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'  # 可选：当推送v开头的tag时也触发
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. 检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # 获取完整git历史（可选）
+
+      # 2. 安装 YAML 处理工具
+      - name: Install yq (YAML processor)
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+          echo "yq version: $(yq --version)"
+
+      # 3. 从 version.yml 读取版本号
+      - name: Extract version from version.yml
+        id: version
+        run: |
+          # 检查文件是否存在
+          if [ ! -f "version.yml" ]; then
+            echo "❌ 错误：version.yml 文件不存在"
+            exit 1
+          fi
+
+          echo "=== version.yml 内容 ==="
+          cat version.yml
+          echo "======================"
+
+          # 使用 yq 提取版本号
+          RAW_VERSION=$(yq eval '.version' version.yml 2>/dev/null || echo "")
+          
+          if [ -z "$RAW_VERSION" ]; then
+            echo "❌ 错误：无法从 version.yml 读取 version 字段"
+            exit 1
+          fi
+
+          # 清理版本号（移除引号和空格）
+          CLEAN_VERSION=$(echo "$RAW_VERSION" | tr -d '"'"'"' | sed 's/^v//' | xargs)
+          
+          # 验证版本格式 (x.y.z)
+          if [[ ! "$CLEAN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ 错误：版本号格式无效，应为 x.y.z（例如 1.0.1）"
+            echo "当前值: '$CLEAN_VERSION'"
+            exit 1
+          fi
+
+          echo "✅ 版本号: $CLEAN_VERSION"
+          echo "version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
+
+      # 4. 设置 Docker 元数据（可选，用于更好的镜像标签）
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: 7ommymerlin/notify-scheduler
+          tags: |
+            type=raw,value=latest
+            type=raw,value={{steps.version.outputs.version}}
+
+      # 5. 登录 Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 6. 设置 Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # 7. 构建并推送 Docker 镜像
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            7ommymerlin/notify-scheduler:${{ steps.version.outputs.version }}
+            7ommymerlin/notify-scheduler:latest
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 8. 验证推送结果（可选）
+      - name: Verify pushed tags
+        run: |
+          echo "✅ 镜像已成功推送至 Docker Hub"
+          echo "📦 镜像标签:"
+          echo "  - 7ommymerlin/notify-scheduler:${{ steps.version.outputs.version }}"
+          echo "  - 7ommymerlin/notify-scheduler:latest"
+          echo ""
+          echo "🔗 查看地址: https://hub.docker.com/r/7ommymerlin/notify-scheduler/tags"
