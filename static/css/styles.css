@@ -1,0 +1,1404 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #030712;
+    --bg-accent: #0b1126;
+    --bg-accent-2: #101735;
+    --panel: rgba(10, 14, 35, 0.8);
+    --panel-border: rgba(255, 255, 255, 0.12);
+    --card: rgba(255, 255, 255, 0.95);
+    --card-border: rgba(15, 23, 42, 0.08);
+    --card-shadow: 0 30px 60px rgba(4, 6, 15, 0.25);
+    --primary: #5f7bff;
+    --primary-strong: #3a45ff;
+    --accent: #5df2c8;
+    --text-strong: #0f172a;
+    --text-muted: #6b7280;
+    --divider: rgba(99, 102, 241, 0.25);
+    --radius-lg: 32px;
+    --radius-md: 18px;
+    --radius-sm: 12px;
+    --select-arrow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='8.5' fill='%23f5f7ff' stroke='%235f7bff' stroke-width='1.2'/%3E%3Cpath d='M6.5 8.5 10 12l3.5-3.5' fill='none' stroke='%235f7bff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+body {
+    font-family: 'Figtree', 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.4), transparent 45%),
+                radial-gradient(circle at 85% 0%, rgba(93, 242, 200, 0.25), transparent 40%),
+                linear-gradient(135deg, var(--bg-accent), var(--bg-accent-2));
+    color: var(--text-strong);
+    min-height: 100vh;
+    padding: 40px 20px 60px;
+    position: relative;
+    overflow-x: hidden;
+}
+
+body::before,
+body::after {
+    content: '';
+    position: fixed;
+    width: 380px;
+    height: 380px;
+    background: radial-gradient(circle, rgba(93, 242, 200, 0.4), transparent 65%);
+    filter: blur(40px);
+    opacity: 0.35;
+    z-index: 0;
+}
+
+body::before {
+    top: -120px;
+    left: -60px;
+}
+
+body::after {
+    bottom: -160px;
+    right: -30px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.35), transparent 60%);
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+header {
+    color: #f8fafc;
+    margin-bottom: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+    gap: 24px;
+    padding: 32px;
+    border-radius: var(--radius-lg);
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(24px);
+    box-shadow: var(--card-shadow);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.brand-logo {
+    width: 74px;
+    height: 74px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 10px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.brand-logo svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.brand-copy h1 {
+    margin-bottom: 8px;
+    font-family: 'Space Grotesk', 'Figtree', sans-serif;
+    font-size: 2.4rem;
+    letter-spacing: 0.02em;
+    color: #fff;
+}
+
+.brand-copy p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 1.05rem;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+}
+
+header p {
+    font-size: 1.1rem;
+    color: rgba(248, 250, 252, 0.82);
+}
+
+.user-info {
+    background: rgba(255, 255, 255, 0.12);
+    padding: 16px 22px;
+    border-radius: 999px;
+    color: #f8fafc;
+    font-size: 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logout-btn {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: none;
+    padding: 6px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.3s, transform 0.3s;
+}
+
+.logout-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.main-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 28px;
+    margin-bottom: 40px;
+    align-items: start; /* allow columns to stretch */
+}
+
+.mobile-tabs {
+    display: none;
+    margin-bottom: 18px;
+    padding: 6px;
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.mobile-tab {
+    border: none;
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-align: center;
+    color: rgba(248, 250, 252, 0.7);
+    background: transparent;
+    transition: background 0.25s ease, color 0.25s ease, transform 0.2s ease;
+}
+
+.mobile-tab.active {
+    color: #0f172a;
+    background: linear-gradient(135deg, var(--accent), #8bd3ff);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+}
+
+.card {
+    background: var(--card);
+    border-radius: var(--radius-md);
+    padding: 28px;
+    border: 1px solid var(--card-border);
+    box-shadow: var(--card-shadow);
+    backdrop-filter: blur(18px);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0; /* allow proper overflow in children */
+}
+
+.card h2 {
+    color: var(--text-strong);
+    margin-bottom: 24px;
+    font-size: 1.5rem;
+    font-family: 'Space Grotesk', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.card h2::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    margin-left: 16px;
+    background: linear-gradient(90deg, var(--divider), transparent);
+}
+
+.form-group {
+    margin-bottom: 22px;
+}
+
+.form-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: var(--text-strong);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select,
+.filter-bar select,
+.user-channel-select {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid rgba(15, 23, 42, 0.1);
+    border-radius: 16px;
+    font-size: 15px;
+    background: rgba(15, 23, 42, 0.02);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.form-group select,
+.filter-bar select,
+.user-channel-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image:
+        var(--select-arrow-icon),
+        linear-gradient(to bottom, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0.12));
+    background-repeat: no-repeat;
+    background-position: calc(100% - 20px) 50%, calc(100% - 56px) 50%;
+    background-size: 20px auto, 1px 60%;
+    padding-right: 64px;
+    color: var(--text-strong);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: rgba(15, 23, 42, 0.45);
+}
+
+/* 已保存渠道下拉额外间距 */
+.user-channel-select {
+    margin-bottom: 15px;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus,
+.filter-bar select:focus,
+.user-channel-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    background-color: #fff;
+    box-shadow: 0 15px 30px rgba(99, 102, 241, 0.12);
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.config-fields {
+    background: rgba(99, 102, 241, 0.05);
+    padding: 18px;
+    border-radius: var(--radius-sm);
+    margin-top: 10px;
+    border: 1px dashed rgba(99, 102, 241, 0.35);
+}
+
+.config-fields .form-group {
+    margin-bottom: 15px;
+}
+
+.config-fields .form-group:last-child {
+    margin-bottom: 0;
+}
+
+.btn {
+    padding: 14px 28px;
+    border: none;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.01em;
+}
+
+.btn-primary {
+    background: linear-gradient(120deg, var(--primary) 0%, var(--primary-strong) 100%);
+    color: white;
+    width: 100%;
+    box-shadow: 0 18px 35px rgba(58, 69, 255, 0.35);
+}
+
+.btn-primary:hover {
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 22px 45px rgba(58, 69, 255, 0.45);
+}
+
+.btn-ghost {
+    background: rgba(15, 23, 42, 0.06);
+    color: var(--text-strong);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.btn-ghost:hover {
+    background: rgba(15, 23, 42, 0.12);
+}
+
+.btn-sm {
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: 14px;
+}
+
+.btn-danger {
+    background: linear-gradient(120deg, #ff5f6d, #ff9966);
+    color: white;
+    box-shadow: 0 10px 25px rgba(255, 95, 109, 0.35);
+}
+
+.btn-success {
+    background: linear-gradient(120deg, #34d399, #10b981);
+    color: white;
+    box-shadow: 0 12px 28px rgba(16, 185, 129, 0.35);
+}
+
+.btn-info {
+    background: linear-gradient(120deg, #38bdf8, #818cf8);
+    color: white;
+    box-shadow: 0 12px 28px rgba(56, 189, 248, 0.35);
+}
+
+.task-list {
+    max-height: 620px;
+    overflow-y: auto;
+    padding: 8px;
+    margin: 0;
+    border-radius: var(--radius-sm);
+    background: rgba(15, 23, 42, 0.02);
+    border: 1px solid rgba(15, 23, 42, 0.05);
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important; /* override previous fixed max-height values */
+}
+
+/* Cap the task-list height so it won't grow indefinitely — once exceeding this it will scroll */
+#taskList,
+.task-list {
+    /* keep flexible behavior but limit maximum height */
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: min(720px, calc(100vh - 260px)) !important; /* cap height relative to viewport */
+    overflow-y: auto;
+}
+
+/* Slightly smaller cap on narrow screens to account for taller header/controls */
+@media (max-width: 768px) {
+    #taskList,
+    .task-list {
+        max-height: calc(100vh - 300px) !important;
+    }
+}
+
+.task-item {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(243, 244, 255, 0.95));
+    padding: 20px 22px 20px 32px;
+    margin-bottom: 18px;
+    border-radius: 20px;
+    transition: all 0.35s ease;
+    position: relative;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.task-item.recurring {
+    border: 1.5px solid rgba(93, 242, 200, 0.65);
+    box-shadow: 0 18px 40px rgba(93, 242, 200, 0.12), var(--card-shadow);
+}
+
+/* 过期任务样式调整（修复 ::after 拼写并优化视觉） */
+.task-item.expired {
+    background: linear-gradient(135deg, #e9e9e9, #e0e0e0);
+    border-color: rgba(15, 23, 42, 0.04);
+    box-shadow: none;
+    color: rgba(15, 23, 42, 0.65);
+}
+.task-item.expired::after {
+    background: linear-gradient(180deg, rgba(200,200,200,0.6), rgba(220,220,220,0.6));
+    opacity: 0.8;
+}
+
+/* 过期专用徽章 */
+.status-badge.status-expired {
+    background: rgba(148,163,184,0.12);
+    color: rgba(71,85,105,1);
+    box-shadow: none;
+}
+
+.task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 10px;
+}
+
+.task-title {
+    font-weight: 600;
+    font-size: 1.15rem;
+    color: var(--text-strong);
+    margin-bottom: 6px;
+    font-family: 'Space Grotesk', sans-serif;
+}
+
+.task-content {
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    line-height: 1.5;
+}
+
+.task-meta {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    font-size: 0.92rem;
+    color: rgba(15, 23, 42, 0.7);
+}
+
+.task-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.status-pending {
+    background: rgba(250, 204, 21, 0.15);
+    color: #b45309;
+}
+
+.status-sent {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
+}
+
+.status-failed {
+    background: rgba(248, 113, 113, 0.18);
+    color: #b91c1c;
+}
+
+.status-cancelled {
+    background: rgba(148, 163, 184, 0.2);
+    color: #475569;
+}
+
+.channel-badge {
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--primary-strong);
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+}
+
+/* 重复任务醒目标识 */
+.recurring-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #0f172a;
+    background: linear-gradient(135deg, rgba(93, 242, 200, 0.15), rgba(95, 123, 255, 0.1));
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    box-shadow: 0 10px 22px rgba(16, 24, 40, 0.18);
+    vertical-align: middle;
+}
+
+.recurring-badge::before {
+    content: '↻';
+    display: inline-block;
+    font-weight: 900;
+}
+
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 24px;
+    background: rgba(15, 23, 42, 0.03);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 18px;
+    padding: 12px;
+}
+
+.filter-bar select {
+    flex: 1;
+    min-width: 160px;
+    width: auto;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: rgba(15, 23, 42, 0.55);
+    border-radius: 20px;
+    border: 1px dashed rgba(99, 102, 241, 0.35);
+    background: rgba(99, 102, 241, 0.04);
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 18px 28px;
+    border-radius: 18px;
+    color: white;
+    font-weight: 600;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    max-width: 400px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+}
+
+.notification.success {
+    background: linear-gradient(120deg, #22c55e, #16a34a);
+}
+
+.notification.error {
+    background: linear-gradient(120deg, #fb7185, #ef4444);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.checkbox-group input[type="checkbox"] {
+    width: auto;
+    cursor: pointer;
+}
+
+.login-container {
+    max-width: 420px;
+    margin: 80px auto;
+}
+
+.login-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 26px;
+    padding: 40px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    backdrop-filter: blur(14px);
+}
+
+.login-tabs {
+    display: inline-flex;
+    margin-bottom: 32px;
+    border-radius: 999px;
+    padding: 4px;
+    background: rgba(99, 102, 241, 0.08);
+    width: 100%;
+}
+
+.login-tab {
+    flex: 1;
+    padding: 12px 18px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 999px;
+    transition: all 0.3s;
+    font-weight: 600;
+    color: rgba(15, 23, 42, 0.6);
+}
+
+.login-tab.active {
+    color: #fff;
+    background: linear-gradient(120deg, var(--primary), var(--primary-strong));
+    box-shadow: 0 15px 25px rgba(58, 69, 255, 0.3);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.channel-management {
+    margin-top: 32px;
+}
+
+.channel-management .btn-info {
+    margin-bottom: 16px;
+}
+
+.channel-list {
+    margin-top: 4px;
+}
+
+.channel-item {
+    background: rgba(15, 23, 42, 0.03);
+    padding: 18px;
+    margin-bottom: 12px;
+    border-radius: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.channel-info {
+    flex: 1;
+}
+
+.channel-name {
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text-strong);
+}
+
+.channel-type {
+    color: rgba(15, 23, 42, 0.6);
+    font-size: 0.9rem;
+}
+
+.channel-actions {
+    display: flex;
+    gap: 10px;
+    min-width: 220px;
+    flex: 0 0 auto;
+}
+
+.channel-actions .btn-sm {
+    flex: 1;
+    min-width: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+    line-height: 1.2 !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    width: auto;
+    box-sizing: border-box;
+}
+
+.channel-actions .btn-sm.btn-info,
+.channel-actions .btn-sm.btn-danger {
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 10px 16px !important;
+    line-height: 1.2 !important;
+}
+
+/* 响应式设计增强 */
+
+/* 平板设备适配 */
+@media (max-width: 1200px) {
+    .container {
+        padding: 0 15px;
+    }
+
+    .card {
+        padding: 20px;
+    }
+
+    header h1 {
+        font-size: 2.2rem;
+    }
+
+    .main-content {
+        gap: 15px;
+    }
+}
+
+/* 小平板设备适配 */
+@media (max-width: 968px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+
+    header {
+        flex-direction: column;
+        text-align: center;
+        gap: 20px;
+    }
+
+    .brand {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .brand-logo {
+        width: 56px;
+        height: 56px;
+    }
+
+    header h1 {
+        font-size: 2rem;
+    }
+
+    .user-info {
+        align-self: center;
+    }
+}
+
+/* 手机设备适配 */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    .container {
+        padding: 0 10px;
+    }
+
+    header {
+        margin-bottom: 25px;
+    }
+
+    header h1 {
+        font-size: 1.8rem;
+        margin-bottom: 8px;
+    }
+
+    header p {
+        font-size: 1rem;
+    }
+
+    .card {
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .card h2 {
+        font-size: 1.3rem;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        padding: 10px;
+        font-size: 16px; /* 防止 iOS 自动缩放 */
+    }
+
+    .btn {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+
+    .task-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .task-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .filter-bar {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .notification {
+        max-width: calc(100vw - 40px);
+        right: 20px;
+        left: 20px;
+    }
+
+    .channel-actions {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .channel-actions .btn {
+        width: 100%;
+    }
+
+    .channel-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .modal-content {
+        margin: 10% auto;
+        padding: 15px;
+        width: 95%;
+    }
+
+    .login-container {
+        margin: 50px 10px;
+        max-width: none;
+    }
+
+    .login-card {
+        padding: 25px;
+    }
+}
+
+/* 移动端视图切换 */
+@media (max-width: 640px) {
+    .mobile-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        position: sticky;
+        top: 12px;
+        z-index: 5;
+        backdrop-filter: blur(12px);
+    }
+
+    .card-section {
+        display: none;
+    }
+
+    .card-section.active {
+        display: block;
+    }
+
+    .main-content {
+        margin-top: 10px;
+    }
+}
+
+@media (min-width: 641px) {
+    .card-section {
+        display: block;
+    }
+}
+
+/* 小屏手机设备适配 */
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 1.5rem;
+    }
+
+    .card {
+        padding: 12px;
+    }
+
+    .card h2 {
+        font-size: 1.2rem;
+    }
+
+    .task-item {
+        padding: 12px 12px 12px 26px;
+    }
+
+    .status-badge,
+    .channel-badge {
+        font-size: 0.75rem;
+        padding: 3px 8px;
+    }
+
+    .btn-sm {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+
+    .task-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .task-actions .btn {
+        width: 100%;
+    }
+}
+
+/* 超宽屏适配 */
+@media (min-width: 1400px) {
+    .container {
+        max-width: 1600px;
+    }
+
+    .main-content {
+        gap: 30px;
+    }
+
+    .task-list {
+        max-height: 700px;
+    }
+}
+
+/* 横屏模式适配 */
+@media (max-height: 600px) and (orientation: landscape) {
+    .login-container {
+        margin: 20px auto;
+    }
+
+    .modal-content {
+        margin: 2% auto;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .task-list {
+        max-height: 400px;
+    }
+}
+
+.loading {
+    text-align: center;
+    padding: 28px;
+    color: rgba(15, 23, 42, 0.6);
+}
+
+.spinner {
+    border: 3px solid rgba(99, 102, 241, 0.15);
+    border-top: 3px solid var(--primary);
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 12px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background: rgba(255, 255, 255, 0.96);
+    margin: 5% auto;
+    padding: 28px;
+    border-radius: 24px;
+    width: 90%;
+    max-width: 560px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 30px 70px rgba(15, 23, 42, 0.25);
+    backdrop-filter: blur(12px);
+}
+
+.modal.show .modal-content {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.close {
+    color: rgba(15, 23, 42, 0.4);
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close:hover {
+    color: var(--primary);
+}
+
+/* 响应式交互优化 */
+
+/* 增加可点击区域 */
+.btn,
+.login-tab,
+.task-item,
+.channel-item {
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+/* 移动端按钮最小点击区域 */
+@media (max-width: 768px) {
+    .btn {
+        min-height: 44px; /* iOS 推荐的最小点击区域 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-sm {
+        min-height: 36px;
+        padding: 8px 12px;
+    }
+
+    /* 优化小屏幕触摸体验 */
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        min-height: 44px;
+        padding: 10px 12px;
+    }
+
+    /* 任务操作按钮优化 */
+    .task-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .task-actions .btn {
+        flex: 1;
+        min-width: 100px;
+    }
+
+    /* 编辑模态框移动端优化 */
+    #editTaskModal .modal-content {
+        margin: 5% auto;
+        padding: 15px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    #editTaskModal form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    #editTaskModal .form-group {
+        margin-bottom: 0;
+    }
+
+    #editTaskModal .modal-content h2 {
+        font-size: 1.3rem;
+        margin-bottom: 15px;
+    }
+
+    /* 编辑表单底部按钮优化 */
+    #editTaskModal form > div:last-child {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 20px;
+    }
+}
+
+/* 编辑模态框样式优化 */
+#editTaskModal .modal-content {
+    max-width: 600px;
+    transform: scale(0.9);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+#confirmModal .modal-content {
+    max-width: 420px;
+    text-align: center;
+    transform: scale(0.94);
+    opacity: 0;
+    transition: all 0.22s ease;
+    padding: 26px 28px;
+}
+
+#confirmModal .confirm-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    background: rgba(255, 95, 109, 0.1);
+    border: 1px solid rgba(255, 95, 109, 0.25);
+    color: #e11d48;
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+    margin: 0 auto 14px;
+}
+
+#confirmModal h3 {
+    margin: 0 0 8px;
+    font-size: 1.2rem;
+}
+
+#confirmModal .confirm-message {
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+#confirmModal .confirm-actions {
+    margin-top: 18px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+#confirmModal .confirm-actions .btn {
+    flex: 1;
+}
+
+#confirmModal.show .modal-content {
+    transform: scale(1);
+    opacity: 1;
+}
+
+#editTaskModal form {
+    max-height: 70vh;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+/* 禁用字段样式 */
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+    background-color: rgba(148, 163, 184, 0.2);
+    cursor: not-allowed;
+    opacity: 0.75;
+}
+
+/* 警告提示样式 */
+.warning-hint {
+    background: rgba(251, 191, 36, 0.2);
+    border: 1px solid rgba(251, 191, 36, 0.5);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: #92400e;
+}
+
+/* 信息提示样式 */
+.info-hint {
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 18px;
+    font-size: 0.85rem;
+    color: #1d4ed8;
+}
+
+/* 编辑表单滚动条优化 */
+#editTaskModal form::-webkit-scrollbar {
+    width: 4px;
+}
+
+#editTaskModal form::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#editTaskModal form::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.2);
+    border-radius: 2px;
+}
+
+#editTaskModal form::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.4);
+}
+
+/* 滚动条美化优化 - 适用于所有设备 */
+.task-list {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: rgba(99, 102, 241, 0.3) transparent; /* Firefox */
+}
+
+.task-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.task-list::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+}
+
+.task-list::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3);
+    border-radius: 3px;
+    transition: background 0.3s ease;
+}
+
+.task-list:hover::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.6);
+}
+
+.task-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.8);
+}
+
+/* 触摸设备完全隐藏滚动条 */
+@media (pointer: coarse) {
+    * {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .task-list {
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+    }
+
+    .task-list::-webkit-scrollbar {
+        display: none; /* Chrome/Safari */
+    }
+}
+
+/* 鼠标设备显示更精致的滚动条 */
+@media (pointer: fine) {
+    .task-list {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(99, 102, 241, 0.2) transparent;
+    }
+
+    .task-list::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .task-list::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .task-list::-webkit-scrollbar-thumb {
+        background: rgba(99, 102, 241, 0.2);
+        border-radius: 2px;
+        transition: all 0.2s ease;
+    }
+
+    .task-list:hover::-webkit-scrollbar-thumb {
+        background: rgba(99, 102, 241, 0.4);
+        width: 6px;
+    }
+
+    .task-list::-webkit-scrollbar-thumb:hover {
+        background: rgba(99, 102, 241, 0.6);
+    }
+}
+
+/* 悬停效果优化 - 避免触发滚动条 */
+@media (hover: hover) and (pointer: fine) {
+    .btn:hover {
+        transform: translateY(-2px);
+    }
+
+    .task-item {
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .task-item:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 25px 55px rgba(99, 102, 241, 0.25);
+    }
+
+    .channel-item:hover {
+        background: rgba(99, 102, 241, 0.08);
+        border-color: rgba(99, 102, 241, 0.2);
+    }
+
+    .login-tab:hover {
+        background: rgba(99, 102, 241, 0.12);
+        color: var(--text-strong);
+    }
+}
+
+/* 无悬停设备使用触摸反馈 */
+@media (hover: none) and (pointer: coarse) {
+    .btn:active {
+        transform: scale(0.98);
+    }
+
+    .task-item:active {
+        transform: scale(0.98);
+    }
+
+    .channel-item:active {
+        background: rgba(99, 102, 241, 0.12);
+    }
+
+    .login-tab:active {
+        background: rgba(99, 102, 241, 0.2);
+    }
+}
+
+/* 高DPI屏幕优化 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .status-badge,
+    .channel-badge {
+        border-width: 0.5px;
+    }
+
+    .btn {
+        border-width: 0.5px;
+    }
+}
+
+/* 深色模式支持（可选） */
+@media (prefers-color-scheme: dark) {
+    /* 这里可以添加深色模式支持，当前为浅色模式 */
+}
+
+/* 减少动画（根据用户偏好） */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Ensure columns can be equal-height and the task-list scrollbar stretches with the card height */
+.main-content {
+    /* keep existing grid layout but allow children to stretch to match the tallest column */
+    align-items: start;
+}
+
+/* Make cards use a column flex layout so their inner area can grow/shrink predictably */
+.card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0; /* allow proper overflow in children */
+}
+
+/* Ensure card sections (grid items) don't impose a min-height that prevents shrinking */
+.card-section {
+    min-height: 0;
+}
+
+/* Make the task list flexible: take remaining vertical space and allow its internal scrollbar to reflect the card height */
+#taskList,
+.task-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important; /* override previous fixed max-height values */
+    overflow-y: auto;
+}
