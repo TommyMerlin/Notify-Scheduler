@@ -582,6 +582,70 @@ def delete_user_channel(channel_id):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/test-notification', methods=['POST'])
+@login_required
+def test_notification():
+    """
+    测试通知发送
+
+    请求体示例:
+    {
+        "channel": "wecom_webhook",
+        "channel_config": {
+            "webhook_url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
+        },
+        "title": "测试通知",
+        "content": "这是一条测试通知"
+    }
+    """
+    try:
+        data = request.get_json()
+
+        # 验证必填字段
+        required_fields = ['channel', 'channel_config']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'缺少必填字段: {field}'}), 400
+
+        # 验证通知渠道
+        try:
+            channel = NotifyChannel(data['channel'])
+        except ValueError:
+            valid_channels = [c.value for c in NotifyChannel]
+            return jsonify({'error': f'无效的通知渠道，支持的渠道: {valid_channels}'}), 400
+
+        # 解析配置
+        from notifier import parse_config, NotificationSender
+        config = parse_config(data['channel_config'])
+
+        # 使用默认标题和内容，如果没有提供
+        title = data.get('title', '🧪 通知测试')
+        content = data.get('content', f'这是一条来自【通知定时发送系统】的测试消息。\n\n发送时间: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n\n如果您收到此消息，说明通知渠道配置正确！')
+
+        # 发送测试通知
+        try:
+            NotificationSender.send(
+                channel=channel,
+                config=config,
+                title=title,
+                content=content
+            )
+
+            return jsonify({
+                'success': True,
+                'message': '测试通知发送成功！请检查您的通知渠道是否收到消息。'
+            }), 200
+
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'发送失败: {str(e)}'
+            }), 200  # 返回200但包含错误信息，便于前端处理
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """健康检查"""

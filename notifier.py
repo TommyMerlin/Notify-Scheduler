@@ -209,8 +209,13 @@ class NotificationSender:
             return True
 
 
-def parse_config(config_json: str) -> dict:
-    """解析配置 JSON 字符串"""
+def parse_config(config_json) -> dict:
+    """解析配置 JSON 字符串或字典"""
+    # 如果已经是字典，直接返回
+    if isinstance(config_json, dict):
+        return config_json
+
+    # 如果是字符串，尝试解析 JSON
     try:
         return json.loads(config_json)
     except json.JSONDecodeError as e:

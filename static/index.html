@@ -1533,6 +1533,14 @@
                             <!-- 动态生成配置字段 -->
                         </div>
 
+                        <!-- 测试通知按钮 -->
+                        <div id="testNotificationSection" class="form-group" style="display: none;">
+                            <button type="button" class="btn btn-info" onclick="testNotification()" style="width: 100%;">
+                                🧪 测试通知发送
+                            </button>
+                            <div id="testNotificationResult" style="margin-top: 10px;"></div>
+                        </div>
+
                         <div class="form-group">
                             <label for="scheduledTime">计划发送时间 *</label>
                             <input type="datetime-local" id="scheduledTime" name="scheduledTime" required>
@@ -2176,9 +2184,11 @@
             const channelSelect = document.getElementById('channel');
             const selectedOption = channelSelect.options[channelSelect.selectedIndex];
             const configFieldsDiv = document.getElementById('configFields');
+            const testNotificationSection = document.getElementById('testNotificationSection');
 
             if (!selectedOption || !selectedOption.value) {
                 configFieldsDiv.style.display = 'none';
+                testNotificationSection.style.display = 'none';
                 return;
             }
 
@@ -2228,6 +2238,9 @@
 
             configFieldsDiv.style.display = 'block';
 
+            // 显示测试通知按钮
+            document.getElementById('testNotificationSection').style.display = 'block';
+
             // 辅助函数：根据用户渠道ID填充配置字段
             function populateFromUserChannel(selectedChannelId) {
                 if (!selectedChannelId) return;
@@ -2260,6 +2273,88 @@
                     userChannelSelect.value = savedForType[0].id;
                     populateFromUserChannel(savedForType[0].id);
                 }
+            }
+        }
+
+        // 测试通知发送
+        async function testNotification() {
+            const channelSelect = document.getElementById('channel');
+            const selectedOption = channelSelect.options[channelSelect.selectedIndex];
+            const resultDiv = document.getElementById('testNotificationResult');
+
+            if (!selectedOption || !selectedOption.value) {
+                showNotification('请先选择通知渠道', 'error');
+                return;
+            }
+
+            const channel = selectedOption.value;
+            const fields = JSON.parse(selectedOption.dataset.fields || '[]');
+
+            // 构建配置对象
+            const channelConfig = {};
+            let hasEmptyField = false;
+
+            fields.forEach(field => {
+                const input = document.getElementById(`config_${field}`);
+                const value = input ? input.value : '';
+                if (!value) {
+                    hasEmptyField = true;
+                }
+                channelConfig[field] = value;
+            });
+
+            if (hasEmptyField) {
+                showNotification('请先填写完整的渠道配置', 'error');
+                return;
+            }
+
+            // 获取标题和内容（可选）
+            const title = document.getElementById('title').value || undefined;
+            const content = document.getElementById('content').value || undefined;
+
+            // 显示加载状态
+            resultDiv.innerHTML = '<div class="loading" style="padding: 10px;"><div class="spinner" style="width: 24px; height: 24px; margin: 0 auto 8px;"></div><p style="margin: 0; font-size: 0.9rem;">正在发送测试通知...</p></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/test-notification`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        channel: channel,
+                        channel_config: channelConfig,
+                        title: title,
+                        content: content
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    resultDiv.innerHTML = `
+                        <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 12px; color: #047857;">
+                            ✅ ${result.message}
+                        </div>
+                    `;
+                    showNotification(result.message, 'success');
+                } else {
+                    const errorMsg = result.error || result.message || '测试失败';
+                    resultDiv.innerHTML = `
+                        <div style="background: rgba(248, 113, 113, 0.18); border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 12px; padding: 12px; color: #b91c1c;">
+                            ❌ ${errorMsg}
+                        </div>
+                    `;
+                    showNotification(errorMsg, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="background: rgba(248, 113, 113, 0.18); border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 12px; padding: 12px; color: #b91c1c;">
+                        ❌ 请求失败: ${error.message}
+                    </div>
+                `;
+                showNotification('测试失败: ' + error.message, 'error');
             }
         }
 
