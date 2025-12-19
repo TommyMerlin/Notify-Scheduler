@@ -2,7 +2,8 @@
 
 基于 [ANotify](https://github.com/TommyMerlin/ANotify) 库的通知定时发送系统，支持多种通知渠道的定时和重复发送。提供完整的 Web 管理界面和 RESTful API。
 
-![界面 UI](./assets/ui.png)
+![主界面](./assets/main-page.png)
+![日历](./assets/calendar.png)
 
 ## 功能特性
 
