@@ -1,4 +1,4 @@
-# 通知定时发送系统
+# 通知定时发送系统 [![Build and Push Docker Image](https://github.com/TommyMerlin/Notify-Scheduler/actions/workflows/docker-buid.yml/badge.svg)](https://github.com/TommyMerlin/Notify-Scheduler/actions/workflows/docker-buid.yml)
 
 基于 [ANotify](https://github.com/TommyMerlin/ANotify) 库的通知定时发送系统，支持多种通知渠道的定时和重复发送。提供完整的 Web 管理界面和 RESTful API。
 
@@ -6,8 +6,7 @@
 
 ## 功能特性
 
-- ✅ **多渠道支持**: 企业微信、飞书、钉钉、PushPlus、Server酱等
- - ✅ **多渠道支持**: 企业微信、飞书、钉钉、PushPlus、Server酱，并新增 Gotify、Ntfy、IYUU、巴法云 等第三方推送支持
+ - ✅ **多渠道支持**: 企业微信、飞书、钉钉、PushPlus、Server酱、Gotify、Ntfy、IYUU、巴法云 等第三方推送支持
 - ⏰ **定时发送**: 指定时间自动发送通知
 - 🔁 **重复任务**: 支持使用 Cron 表达式创建重复任务
 - 🌐 **Web 界面**: 美观的前端界面，支持任务的创建、查看、取消
