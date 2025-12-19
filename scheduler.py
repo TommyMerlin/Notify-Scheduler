@@ -140,19 +140,31 @@ class NotifyScheduler:
             pending_tasks = db.query(NotifyTask).filter(
                 NotifyTask.status == NotifyStatus.PENDING
             ).all()
-            
+
             logger.info(f"找到 {len(pending_tasks)} 个待发送任务")
-            
+
             for task in pending_tasks:
                 # 如果是一次性任务且计划时间已过，跳过
                 if not task.is_recurring and task.scheduled_time < datetime.now():
                     logger.warning(f"任务 {task.id} 计划时间已过，跳过加载")
                     continue
-                
+
+                # 如果是重复任务且计划时间已过，重新计算下一次执行时间
+                if task.is_recurring and task.cron_expression and task.scheduled_time < datetime.now():
+                    try:
+                        trigger = CronTrigger.from_crontab(task.cron_expression)
+                        next_run = trigger.get_next_fire_time(None, datetime.now())
+                        if next_run:
+                            task.scheduled_time = next_run
+                            db.commit()
+                            logger.info(f"重复任务 {task.id} 的执行时间已过期，已更新为下一次执行时间: {next_run}")
+                    except Exception as e:
+                        logger.warning(f"重复任务 {task.id} 更新下一次执行时间失败: {str(e)}")
+
                 self.add_task(task)
-            
+
             logger.info("待发送任务加载完成")
-            
+
         except Exception as e:
             logger.error(f"加载待发送任务失败: {str(e)}")
         finally:

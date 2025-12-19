@@ -356,13 +356,27 @@ def update_task(task_id):
                 task.title = data['title']
             if 'content' in data:
                 task.content = data['content']
+            if 'channel_config' in data:
+                task.channel_config = json.dumps(data['channel_config'], ensure_ascii=False)
+
+            # 处理时间更新
             if 'scheduled_time' in data:
                 try:
                     task.scheduled_time = datetime.fromisoformat(data['scheduled_time'])
                 except ValueError:
                     return jsonify({'error': '时间格式错误'}), 400
-            if 'channel_config' in data:
-                task.channel_config = json.dumps(data['channel_config'], ensure_ascii=False)
+
+            # 关键：如果是重复任务，根据 cron 表达式重新计算下一次执行时间
+            if task.is_recurring and task.cron_expression:
+                try:
+                    from apscheduler.triggers.cron import CronTrigger
+                    trigger = CronTrigger.from_crontab(task.cron_expression)
+                    # 以当前时间为基准，计算下一次执行时间
+                    next_run = trigger.get_next_fire_time(None, datetime.now())
+                    if next_run:
+                        task.scheduled_time = next_run
+                except Exception as e:
+                    return jsonify({'error': f'根据 Cron 表达式计算下一次执行时间失败: {str(e)}'}), 400
 
             db.commit()
 
