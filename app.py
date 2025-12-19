@@ -176,8 +176,7 @@ def create_task():
             return jsonify({'error': f'无效的通知渠道，支持的渠道: {valid_channels}'}), 400
 
         # 创建任务
-        db = get_db()
-        try:
+        with get_db() as db:
             task = NotifyTask(
                 user_id=request.current_user.id,
                 title=data['title'],
@@ -201,9 +200,6 @@ def create_task():
                 'task': task.to_dict()
             }), 201
 
-        finally:
-            db.close()
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -222,8 +218,7 @@ def list_tasks():
     - sort_order: 排序方向 (asc/desc)，默认 asc
     """
     try:
-        db = get_db()
-        try:
+        with get_db() as db:
             query = db.query(NotifyTask).filter(NotifyTask.user_id == request.current_user.id)
 
             # 状态过滤
@@ -268,9 +263,6 @@ def list_tasks():
                 'tasks': [task.to_dict() for task in tasks]
             })
 
-        finally:
-            db.close()
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -280,8 +272,7 @@ def list_tasks():
 def get_task(task_id):
     """获取单个任务详情"""
     try:
-        db = get_db()
-        try:
+        with get_db() as db:
             task = db.query(NotifyTask).filter(
                 NotifyTask.id == task_id,
                 NotifyTask.user_id == request.current_user.id
@@ -290,9 +281,6 @@ def get_task(task_id):
                 return jsonify({'error': '任务不存在'}), 404
 
             return jsonify(task.to_dict())
-
-        finally:
-            db.close()
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -303,8 +291,7 @@ def get_task(task_id):
 def cancel_task(task_id):
     """取消任务"""
     try:
-        db = get_db()
-        try:
+        with get_db() as db:
             task = db.query(NotifyTask).filter(
                 NotifyTask.id == task_id,
                 NotifyTask.user_id == request.current_user.id
@@ -321,9 +308,6 @@ def cancel_task(task_id):
 
             return jsonify({'message': '任务已取消'})
 
-        finally:
-            db.close()
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -339,8 +323,7 @@ def update_task(task_id):
     """
     try:
         data = request.get_json()
-        db = get_db()
-        try:
+        with get_db() as db:
             task = db.query(NotifyTask).filter(
                 NotifyTask.id == task_id,
                 NotifyTask.user_id == request.current_user.id
@@ -395,9 +378,6 @@ def update_task(task_id):
                 'message': '任务更新成功' if original_status == NotifyStatus.PENDING else '任务已重新启用',
                 'task': task.to_dict()
             })
-
-        finally:
-            db.close()
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -483,8 +463,7 @@ def get_channels():
 def get_user_channels():
     """获取用户的通知渠道配置列表"""
     try:
-        db = get_db()
-        try:
+        with get_db() as db:
             user_channels = db.query(UserChannel).filter(
                 UserChannel.user_id == request.current_user.id
             ).all()
@@ -492,9 +471,6 @@ def get_user_channels():
             return jsonify({
                 'channels': [channel.to_dict() for channel in user_channels]
             })
-
-        finally:
-            db.close()
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -520,8 +496,7 @@ def create_user_channel():
             valid_channels = [c.value for c in NotifyChannel]
             return jsonify({'error': f'无效的通知渠道类型，支持的类型: {valid_channels}'}), 400
 
-        db = get_db()
-        try:
+        with get_db() as db:
             # 检查用户是否已有相同名称的渠道
             existing_channel = db.query(UserChannel).filter(
                 UserChannel.user_id == request.current_user.id,
@@ -548,9 +523,6 @@ def create_user_channel():
                 'channel': user_channel.to_dict()
             }), 201
 
-        finally:
-            db.close()
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -561,8 +533,7 @@ def update_user_channel(channel_id):
     """更新用户通知渠道配置"""
     try:
         data = request.get_json()
-        db = get_db()
-        try:
+        with get_db() as db:
             channel = db.query(UserChannel).filter(
                 UserChannel.id == channel_id,
                 UserChannel.user_id == request.current_user.id
@@ -585,9 +556,6 @@ def update_user_channel(channel_id):
                 'channel': channel.to_dict()
             })
 
-        finally:
-            db.close()
-
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -597,8 +565,7 @@ def update_user_channel(channel_id):
 def delete_user_channel(channel_id):
     """删除用户通知渠道配置"""
     try:
-        db = get_db()
-        try:
+        with get_db() as db:
             channel = db.query(UserChannel).filter(
                 UserChannel.id == channel_id,
                 UserChannel.user_id == request.current_user.id
@@ -610,9 +577,6 @@ def delete_user_channel(channel_id):
             db.commit()
 
             return jsonify({'message': '通知渠道配置删除成功'})
-
-        finally:
-            db.close()
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

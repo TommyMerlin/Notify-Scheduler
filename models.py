@@ -2,11 +2,13 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean, Enum, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
+from contextlib import contextmanager
 import enum
 import hashlib
 import os
 import secrets
 import json
+import ast
 
 Base = declarative_base()
 
@@ -108,9 +110,9 @@ class UserChannel(Base):
         try:
             config = json.loads(self.channel_config) if self.channel_config else {}
         except (json.JSONDecodeError, TypeError):
-            # 如果解析失败，尝试使用 eval（兼容旧数据）
+            # 如果解析失败，尝试使用 ast.literal_eval（兼容旧数据，但只能解析字面量）
             try:
-                config = eval(self.channel_config) if self.channel_config else {}
+                config = ast.literal_eval(self.channel_config) if self.channel_config else {}
             except:
                 config = {}
 
@@ -122,14 +124,6 @@ class UserChannel(Base):
             'is_default': self.is_default,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
-
-
-class NotifyStatus(enum.Enum):
-    """通知状态枚举"""
-    PENDING = "pending"  # 待发送
-    SENT = "sent"  # 已发送
-    FAILED = "failed"  # 发送失败
-    CANCELLED = "cancelled"  # 已取消
 
 
 class NotifyTask(Base):
@@ -168,9 +162,9 @@ class NotifyTask(Base):
         try:
             channel_config = json.loads(self.channel_config) if self.channel_config else {}
         except (json.JSONDecodeError, TypeError):
-            # 如果解析失败，尝试使用 eval（兼容旧数据）
+            # 如果解析失败，尝试使用 ast.literal_eval（兼容旧数据，但只能解析字面量）
             try:
-                channel_config = eval(self.channel_config) if self.channel_config else {}
+                channel_config = ast.literal_eval(self.channel_config) if self.channel_config else {}
             except:
                 channel_config = {}
 
@@ -203,10 +197,11 @@ def init_db():
     Base.metadata.create_all(bind=engine)
 
 
+@contextmanager
 def get_db():
-    """获取数据库会话"""
+    """获取数据库会话（上下文管理器）"""
     db = SessionLocal()
     try:
-        return db
+        yield db
     finally:
-        pass
+        db.close()
