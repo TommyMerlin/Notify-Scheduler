@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/calendar.css">
 </head>
 <body>
     <!-- 登录界面 -->
@@ -93,6 +94,7 @@
                 </div>
                 <div class="user-info">
                     <span>👤 <span id="currentUsername"></span></span>
+                    <button id="openCalendarBtn" class="btn btn-sm btn-ghost" onclick="openCalendarView()">📅 日历</button>
                     <button class="logout-btn" onclick="logout()">退出</button>
                 </div>
             </header>
@@ -100,6 +102,7 @@
             <div class="mobile-tabs" role="tablist" aria-label="移动端视图切换">
                 <button type="button" class="mobile-tab active" data-target="form" aria-pressed="true">创建任务</button>
                 <button type="button" class="mobile-tab" data-target="list" aria-pressed="false">任务列表</button>
+                <button type="button" class="mobile-tab" data-target="calendar" aria-pressed="false">日历</button>
             </div>
 
             <div class="main-content">
@@ -202,6 +205,24 @@
                             <div class="spinner"></div>
                             <p>加载中...</p>
                         </div>
+                    </div>
+                </div>
+
+                <!-- 日历视图 -->
+                <div class="card card-section" data-section="calendar" style="display: none;">
+                    <h2>日历视图 — 待发送任务</h2>
+                    <div id="calendarControls" class="calendar-controls" aria-hidden="false">
+                        <button id="prevMonth" class="btn btn-sm btn-ghost">‹</button>
+                        <div id="calendarMonthLabel" class="calendar-month-label"></div>
+                        <button id="nextMonth" class="btn btn-sm btn-ghost">›</button>
+                    </div>
+                    <div id="calendarContainer" class="calendar-container" aria-live="polite">
+                        <div id="calendarGrid" class="calendar-grid">
+                            <!-- 日历格子与任务将由 JS 生成 -->
+                        </div>
+                    </div>
+                    <div id="calendarDayTasks" class="calendar-day-tasks" style="margin-top: 12px;">
+                        <!-- 点击某天显示当天任务列表 -->
                     </div>
                 </div>
             </div>
@@ -325,6 +346,82 @@
         </div>
     </div>
 
+    <!-- 添加：视图切换控制（在加载 app.js 和 calendar.js 之前） -->
+    <script>
+    // filepath: /Users/7ommmy/Code/DIY/Notify-Scheduler/static/index.html
+    (function () {
+        function showSection(section, show) {
+            if (!section) return;
+            section.style.display = show ? '' : 'none';
+            section.classList.toggle('active', !!show);
+        }
+        function setHeaderToBack() {
+            const btn = document.getElementById('openCalendarBtn');
+            if (!btn) return;
+            btn.textContent = '← 主页面';
+            btn.onclick = openMainView;
+            btn.setAttribute('aria-pressed', 'false');
+        }
+        function setHeaderToCalendar() {
+            const btn = document.getElementById('openCalendarBtn');
+            if (!btn) return;
+            btn.textContent = '📅 日历';
+            btn.onclick = openCalendarView;
+            btn.setAttribute('aria-pressed', 'false');
+        }
+
+        // 切换到日历视图（header 按钮变为“返回主页面”）
+        window.openCalendarView = function () {
+            document.querySelectorAll('.card.card-section').forEach(section => {
+                showSection(section, section.dataset.section === 'calendar');
+            });
+            // 同步移动端 tab
+            document.querySelectorAll('.mobile-tab').forEach(t => {
+                const isCal = t.dataset && t.dataset.target === 'calendar';
+                t.classList.toggle('active', isCal);
+                t.setAttribute('aria-pressed', isCal ? 'true' : 'false');
+            });
+            setHeaderToBack();
+            // 使日历占据全宽的全局状态
+            document.body.classList.add('calendar-active');
+            setTimeout(() => { if (typeof window.loadCalendar === 'function') window.loadCalendar(); }, 10);
+        };
+
+        // 返回主页面（显示创建任务 + 任务列表）
+        window.openMainView = function (target) {
+            // 默认显示 form 和 list 两栏
+            const showSections = ['form', 'list'];
+            document.querySelectorAll('.card.card-section').forEach(section => {
+                showSection(section, showSections.includes(section.dataset.section));
+            });
+            // 移动端 tab 恢复到创建任务
+            document.querySelectorAll('.mobile-tab').forEach(t => {
+                const active = t.dataset && (t.dataset.target === (target || 'form'));
+                t.classList.toggle('active', active);
+                t.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+            setHeaderToCalendar();
+            // 恢复常规布局
+            document.body.classList.remove('calendar-active');
+        };
+
+        // 当用户通过移动端 tab 切换时，保持 header 状态同步
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.mobile-tab').forEach(t => {
+                t.addEventListener('click', function () {
+                    const target = t.dataset && t.dataset.target;
+                    if (target === 'calendar') {
+                        setTimeout(() => { if (typeof window.loadCalendar === 'function') window.loadCalendar(); }, 10);
+                        setHeaderToBack();
+                    } else {
+                        setHeaderToCalendar();
+                    }
+                });
+            });
+        });
+    })();
+    </script>
     <script src="/static/js/app.js"></script>
+    <script src="/static/js/calendar.js"></script>
 </body>
 </html>

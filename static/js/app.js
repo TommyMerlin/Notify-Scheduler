@@ -1338,6 +1338,18 @@ document.addEventListener('DOMContentLoaded', function() {
             initPullToRefresh();
         }
     }, 1000);
+
+    // 增加：当移动端 tab 切换到 calendar 时触发日历加载（防止与页面其它切换逻辑冲突）
+    const tabs = document.querySelectorAll('.mobile-tab');
+    tabs.forEach(t => {
+        t.addEventListener('click', function () {
+            const target = t.dataset && t.dataset.target;
+            if (target === 'calendar' && typeof window.loadCalendar === 'function') {
+                // 让日历脚本负责加载和渲染
+                window.loadCalendar();
+            }
+        });
+    });
 });
 
 // 监听页面可见性变化，优化性能

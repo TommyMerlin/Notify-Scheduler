@@ -1,0 +1,188 @@
+.calendar-controls { display:flex; align-items:center; justify-content:center; gap:24px; margin-bottom:24px; }
+.calendar-month-label { font-weight:700; font-size: 1.5rem; }
+.calendar-controls button#prevMonth, .calendar-controls button#nextMonth { font-size: 1.5rem; padding: 4px 16px; height: auto; }
+.calendar-grid { display:block; }
+.calendar-row { display:grid; grid-template-columns: repeat(7,1fr); gap:6px; margin-bottom:6px; }
+
+/* 优化表头 */
+.calendar-weekdays .calendar-cell { 
+	text-align:center; 
+	padding:8px 4px; 
+	color:var(--text-muted,#666); 
+	font-weight:600; 
+	font-size: 0.9rem;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	background: transparent;
+	box-shadow: none;
+	min-height: auto;
+}
+
+/* 优化日历格子 */
+.calendar-cell { 
+	border-radius:10px; 
+	padding:8px; 
+	min-height:120px; /* 增加高度以便容纳更多任务条 */
+	position:relative; 
+	background:var(--card-bg,#fff); 
+	border: 1px solid rgba(0,0,0,0.03);
+	transition: all 0.2s ease;
+}
+.calendar-cell:not(.empty):hover {
+	transform: translateY(-2px);
+	box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+	border-color: rgba(102, 126, 234, 0.3);
+	z-index: 2;
+	cursor: pointer;
+}
+
+.calendar-day.empty { background:transparent; box-shadow:none; border:none; pointer-events: none; }
+
+.calendar-day-number { 
+	position:absolute; 
+	top:8px; 
+	right:10px; 
+	font-size:0.9rem; 
+	font-weight: 600;
+	color:var(--text-muted,#888); 
+}
+
+/* 优化计数徽章 */
+.calendar-badge { 
+	position:absolute; 
+	left:8px; 
+	top:8px; 
+	background:var(--accent,#667eea); 
+	color:#fff; 
+	padding:1px 6px; 
+	border-radius:6px; 
+	font-size:0.7rem; 
+	font-weight:700; 
+	box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+/* 优化格子内的任务预览列表 */
+.calendar-day-preview { 
+	position:absolute; 
+	left:6px; 
+	right:6px; 
+	bottom:6px; 
+	margin:0; 
+	padding:0; 
+	list-style:none; 
+	max-height:54px; 
+	overflow:hidden; 
+	font-size:0.75rem; 
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+.calendar-day-preview li { 
+	white-space:nowrap; 
+	text-overflow:ellipsis; 
+	overflow:hidden; 
+	background: rgba(102, 126, 234, 0.08); /* 浅色背景 */
+	color: #5a67d8; /* 深色文字 */
+	padding: 3px 6px;
+	border-radius: 4px;
+	line-height: 1.3;
+	font-weight: 500;
+	border-left: 2px solid var(--accent, #667eea); /* 左侧强调线 */
+}
+
+/* 不同状态的任务条样式（日历格子内） */
+.calendar-day-preview li.status-sent { background: rgba(39, 174, 96, 0.1); color: #219150; border-left-color: #27ae60; }
+.calendar-day-preview li.status-failed { background: rgba(231, 76, 60, 0.1); color: #c0392b; border-left-color: #e74c3c; }
+.calendar-day-preview li.status-cancelled { background: rgba(149, 165, 166, 0.1); color: #7f8c8d; border-left-color: #95a5a6; text-decoration: line-through; }
+
+/* 优化后的当天任务列表样式 */
+.calendar-day-tasks { 
+	padding: 16px; 
+	background: var(--panel-bg,#fff); 
+	border-radius: 8px; 
+	margin-top: 16px; 
+	box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.calendar-task-list { 
+	display: flex; 
+	flex-direction: column; 
+	gap: 8px; 
+}
+.calendar-task-row { 
+	display: flex; 
+	align-items: center; 
+	padding: 10px 12px; 
+	background: #f8f9fa; 
+	border-radius: 6px; 
+	border-left: 4px solid var(--accent, #667eea); 
+	transition: background 0.2s;
+}
+
+/* 不同状态的列表行样式（底部列表） */
+.calendar-task-row.status-sent { border-left-color: #27ae60; background: #f0f9f4; }
+.calendar-task-row.status-failed { border-left-color: #e74c3c; background: #fdf2f2; }
+.calendar-task-row.status-cancelled { border-left-color: #95a5a6; background: #f8f9fa; opacity: 0.7; }
+
+.calendar-task-row:hover { 
+	background: #f0f2f5; 
+	filter: brightness(0.98);
+}
+.calendar-task-time { 
+	font-family: 'Monaco', 'Consolas', monospace; 
+	font-weight: 600; 
+	color: var(--text-muted, #666); 
+	width: 60px; 
+	flex-shrink: 0; 
+	font-size: 0.95rem; 
+}
+.calendar-task-title { 
+	font-weight: 500; 
+	color: var(--text-strong, #333); 
+	overflow: hidden; 
+	text-overflow: ellipsis; 
+	white-space: nowrap; 
+	flex: 1; 
+}
+
+/* 列表中的状态标签 */
+.calendar-task-status-label {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 12px;
+    white-space: nowrap;
+    font-weight: 600;
+    background: rgba(0,0,0,0.05);
+    color: #666;
+}
+.status-pending .calendar-task-status-label, .status-waiting .calendar-task-status-label { color: #5a67d8; background: rgba(102, 126, 234, 0.1); }
+.status-sent .calendar-task-status-label { color: #219150; background: rgba(39, 174, 96, 0.1); }
+.status-failed .calendar-task-status-label { color: #c0392b; background: rgba(231, 76, 60, 0.1); }
+.status-cancelled .calendar-task-status-label { color: #7f8c8d; background: rgba(149, 165, 166, 0.1); }
+
+#openCalendarBtn {
+	color: #fff !important;
+}
+/* 返回按钮在日历控制中的样式（更醒目） */
+#calendarBackBtn {
+	background: transparent;
+	color: #fff;
+	border: 1px solid rgba(255,255,255,0.08);
+	padding: 4px 8px;
+	border-radius: 6px;
+}
+
+/* 当进入日历模式时，让日历占满页面宽度并隐藏其它区域 */
+/* 注意：移除了 body.calendar-active .container 规则，使其保持默认容器宽度 */
+
+body.calendar-active .main-content {
+	display: block;
+}
+body.calendar-active .card.card-section[data-section="calendar"] {
+	width: 100%;
+	/* 移除了 margin: 0 和 box-shadow: none，使其与主页面卡片风格一致 */
+}
+body.calendar-active .card.card-section[data-section="form"],
+body.calendar-active .card.card-section[data-section="list"] {
+	display: none !important;
+}
