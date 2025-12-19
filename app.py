@@ -335,6 +335,7 @@ def update_task(task_id):
     更新任务
 
     可更新字段: title, content, scheduled_time, channel_config
+    支持重新启用已取消或已执行的任务
     """
     try:
         data = request.get_json()
@@ -347,9 +348,8 @@ def update_task(task_id):
             if not task:
                 return jsonify({'error': '任务不存在'}), 404
 
-            # 只允许更新待发送的任务
-            if task.status != NotifyStatus.PENDING:
-                return jsonify({'error': '只能更新待发送的任务'}), 400
+            # 记录原始状态
+            original_status = task.status
 
             # 更新字段
             if 'title' in data:
@@ -378,14 +378,21 @@ def update_task(task_id):
                 except Exception as e:
                     return jsonify({'error': f'根据 Cron 表达式计算下一次执行时间失败: {str(e)}'}), 400
 
+            # 如果任务之前不是 PENDING 状态，重新启用它
+            if original_status != NotifyStatus.PENDING:
+                task.status = NotifyStatus.PENDING
+                task.sent_time = None
+                task.error_msg = None
+
             db.commit()
 
-            # 重新添加到调度器
+            # 重新添加到调度器（如果任务被重新启用，需要添加到调度器）
             scheduler.remove_task(task_id, task.is_recurring)
-            scheduler.add_task(task)
+            if task.status == NotifyStatus.PENDING:
+                scheduler.add_task(task)
 
             return jsonify({
-                'message': '任务更新成功',
+                'message': '任务更新成功' if original_status == NotifyStatus.PENDING else '任务已重新启用',
                 'task': task.to_dict()
             })
 

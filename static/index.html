@@ -2395,12 +2395,14 @@
                     <span>🆔 ID: ${task.id}</span>
                 </div>
                 ${task.error_msg ? `<div style="color: #e74c3c; margin-top: 10px;">❌ 错误: ${escapeHtml(task.error_msg)}</div>` : ''}
-                ${task.status === 'pending' ? `
                 <div class="task-actions">
-                    <button class="btn btn-sm btn-info" onclick="editTask(${task.id})">编辑</button>
-                    <button class="btn btn-sm btn-danger" onclick="cancelTask(${task.id})">取消任务</button>
+                    ${task.status === 'pending' ? `
+                        <button class="btn btn-sm btn-info" onclick="editTask(${task.id})">编辑</button>
+                        <button class="btn btn-sm btn-danger" onclick="cancelTask(${task.id})">取消任务</button>
+                    ` : `
+                        <button class="btn btn-sm btn-success" onclick="editTask(${task.id})">重新启用</button>
+                    `}
                 </div>
-                ` : ''}
             `;
 
             return div;
