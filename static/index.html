@@ -1649,6 +1649,14 @@
                     <!-- 动态生成配置字段 -->
                 </div>
 
+                <!-- 测试通知按钮 -->
+                <div id="channelTestNotificationSection" class="form-group" style="display: none;">
+                    <button type="button" class="btn btn-info" onclick="testChannelNotification()" style="width: 100%;">
+                        🧪 测试通知发送
+                    </button>
+                    <div id="channelTestNotificationResult" style="margin-top: 10px;"></div>
+                </div>
+
                 <div class="form-group">
                     <div class="checkbox-group">
                         <input type="checkbox" id="isDefaultChannel" name="isDefault">
@@ -2006,7 +2014,10 @@
             document.getElementById('channelForm').reset();
             document.getElementById('channelConfigFields').innerHTML = '';
             document.getElementById('channelType').disabled = false;
-            // 设置标题为“添加通知渠道”
+            // 隐藏测试按钮和清空测试结果
+            document.getElementById('channelTestNotificationSection').style.display = 'none';
+            document.getElementById('channelTestNotificationResult').innerHTML = '';
+            // 设置标题为"添加通知渠道"
             const title = document.querySelector('#channelModal .modal-content h2');
             if (title) title.textContent = '添加通知渠道';
         }
@@ -2018,6 +2029,9 @@
             document.getElementById('channelConfigFields').innerHTML = '';
             document.getElementById('editingChannelId').value = '';
             document.getElementById('channelType').disabled = false;
+            // 隐藏测试按钮和清空测试结果
+            document.getElementById('channelTestNotificationSection').style.display = 'none';
+            document.getElementById('channelTestNotificationResult').innerHTML = '';
         }
 
         // 渠道类型改变时更新配置字段
@@ -2025,9 +2039,13 @@
             const channelSelect = document.getElementById('channelType');
             const selectedOption = channelSelect.options[channelSelect.selectedIndex];
             const configFieldsDiv = document.getElementById('channelConfigFields');
+            const testSection = document.getElementById('channelTestNotificationSection');
+            const testResultDiv = document.getElementById('channelTestNotificationResult');
 
             if (!selectedOption.value) {
                 configFieldsDiv.innerHTML = '';
+                testSection.style.display = 'none';
+                testResultDiv.innerHTML = '';
                 return;
             }
 
@@ -2052,6 +2070,10 @@
 
                 configFieldsDiv.appendChild(formGroup);
             });
+
+            // 显示测试按钮
+            testSection.style.display = 'block';
+            testResultDiv.innerHTML = '';
         }
 
         // 处理渠道表单（创建或编辑）
@@ -2327,6 +2349,82 @@
                         channel_config: channelConfig,
                         title: title,
                         content: content
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    resultDiv.innerHTML = `
+                        <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 12px; color: #047857;">
+                            ✅ ${result.message}
+                        </div>
+                    `;
+                    showNotification(result.message, 'success');
+                } else {
+                    const errorMsg = result.error || result.message || '测试失败';
+                    resultDiv.innerHTML = `
+                        <div style="background: rgba(248, 113, 113, 0.18); border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 12px; padding: 12px; color: #b91c1c;">
+                            ❌ ${errorMsg}
+                        </div>
+                    `;
+                    showNotification(errorMsg, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="background: rgba(248, 113, 113, 0.18); border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 12px; padding: 12px; color: #b91c1c;">
+                        ❌ 请求失败: ${error.message}
+                    </div>
+                `;
+                showNotification('测试失败: ' + error.message, 'error');
+            }
+        }
+
+        // 测试渠道配置通知发送
+        async function testChannelNotification() {
+            const channelSelect = document.getElementById('channelType');
+            const selectedOption = channelSelect.options[channelSelect.selectedIndex];
+            const resultDiv = document.getElementById('channelTestNotificationResult');
+
+            if (!selectedOption || !selectedOption.value) {
+                showNotification('请先选择渠道类型', 'error');
+                return;
+            }
+
+            const channel = selectedOption.value;
+            const fields = JSON.parse(selectedOption.dataset.fields || '[]');
+
+            // 构建配置对象
+            const channelConfig = {};
+            let hasEmptyField = false;
+
+            fields.forEach(field => {
+                const input = document.getElementById(`channelConfig_${field}`);
+                const value = input ? input.value : '';
+                if (!value) {
+                    hasEmptyField = true;
+                }
+                channelConfig[field] = value;
+            });
+
+            if (hasEmptyField) {
+                showNotification('请先填写完整的渠道配置', 'error');
+                return;
+            }
+
+            // 显示加载状态
+            resultDiv.innerHTML = '<div class="loading" style="padding: 10px;"><div class="spinner" style="width: 24px; height: 24px; margin: 0 auto 8px;"></div><p style="margin: 0; font-size: 0.9rem;">正在发送测试通知...</p></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/test-notification`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        channel: channel,
+                        channel_config: channelConfig
                     })
                 });
 
