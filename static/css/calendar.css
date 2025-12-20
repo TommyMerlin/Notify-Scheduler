@@ -355,3 +355,83 @@ body.dark-mode .calendar-task-row.recurring .calendar-task-time::after {
 	background: linear-gradient(135deg, #8b9cff 0%, #a78bfa 100%);
 	box-shadow: 0 1px 3px rgba(139, 156, 255, 0.3);
 }
+
+/* 任务拖拽相关样式 */
+.calendar-day-preview li.draggable {
+	cursor: move;
+	cursor: grab; /* 显示抓手光标 */
+	transition: all 0.2s ease;
+	user-select: none; /* 禁止文本选择 */
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	-webkit-user-drag: element; /* WebKit 浏览器拖拽支持 */
+}
+
+.calendar-day-preview li.draggable:hover {
+	background: rgba(102, 126, 234, 0.15);
+	transform: translateX(2px);
+}
+
+.calendar-day-preview li.draggable:active {
+	cursor: grabbing; /* 抓取时的光标 */
+}
+
+.calendar-day-preview li.dragging {
+	opacity: 0.5;
+	cursor: grabbing;
+	user-select: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+}
+
+/* 整个任务预览列表也禁止文本选择 */
+.calendar-day-preview {
+	user-select: none;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+}
+
+.calendar-day.drag-over {
+	background: rgba(102, 126, 234, 0.15) !important;
+	border: 2px dashed #667eea !important;
+	box-shadow: 0 0 20px rgba(102, 126, 234, 0.3) !important;
+}
+
+.calendar-day.drag-over::after {
+	content: '拖拽到此处';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: rgba(102, 126, 234, 0.9);
+	color: white;
+	padding: 8px 16px;
+	border-radius: 6px;
+	font-size: 0.9rem;
+	font-weight: 600;
+	pointer-events: none;
+	z-index: 100;
+	white-space: nowrap;
+}
+
+/* 重复任务不可拖拽的视觉提示 */
+.calendar-day-preview li.recurring {
+	cursor: not-allowed;
+	user-select: none; /* 也禁止重复任务的文本选择 */
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+}
+
+/* 深色模式下的拖拽样式 */
+body.dark-mode .calendar-day.drag-over {
+	background: rgba(102, 126, 234, 0.2) !important;
+	border-color: #8b9cff !important;
+}
+
+body.dark-mode .calendar-day.drag-over::after {
+	background: rgba(139, 156, 255, 0.9);
+}

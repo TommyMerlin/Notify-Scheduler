@@ -1034,6 +1034,20 @@ header p {
     color: var(--primary);
 }
 
+/* 确认对话框消息样式优化 */
+.confirm-message {
+    font-size: 1rem;
+    line-height: 1.8; /* 增加行高 */
+    color: var(--text-muted, #666);
+    margin: 20px 0;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+    text-align: left; /* 改为左对齐 */
+    white-space: pre-line; /* ⚠️ 关键：支持 \n 换行 */
+    word-break: break-word;
+}
+
 /* 响应式交互优化 */
 
 /* 增加可点击区域 */

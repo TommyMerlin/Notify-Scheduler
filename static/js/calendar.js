@@ -3,23 +3,19 @@
 	function parseDateFlexible(v) {
 		if (!v) return null;
 		if (v instanceof Date) return isNaN(v) ? null : v;
-		if (typeof v === 'number') return new Date(v); // 支持时间戳
+		if (typeof v === 'number') return new Date(v);
 		let s = String(v).trim();
-		// 如果像 "2023-12-01 09:00:00" -> "2023-12-01T09:00:00"
 		if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(:\d{2})?/.test(s)) s = s.replace(/\s+/, 'T');
-		// 如果没有时区但看起来是日期 (YYYY-MM-DD) -> treat as local midnight by adding T00:00:00
 		if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s = s + 'T00:00:00';
 		const d = new Date(s);
 		return isNaN(d) ? null : d;
 	}
 
-	// 辅助：获取认证头（尝试自动获取 Token）
 	function getAuthHeaders() {
 		const headers = { 
 			'Accept': 'application/json',
-			'X-Requested-With': 'XMLHttpRequest' // 某些后端需要此头来处理 AJAX
+			'X-Requested-With': 'XMLHttpRequest'
 		};
-		// 尝试从 localStorage 获取 token (常见命名)
 		const token = localStorage.getItem('token') || localStorage.getItem('access_token') || localStorage.getItem('jwt');
 		if (token) {
 			headers['Authorization'] = `Bearer ${token}`;
@@ -27,7 +23,6 @@
 		return headers;
 	}
 
-	// 尝试从多个端点拉取任务
 	async function fetchPendingTasks() {
 		if (Array.isArray(window.__TASKS_CACHE) && window.__TASKS_CACHE.length) {
 			console.info('[calendar] using window.__TASKS_CACHE', window.__TASKS_CACHE.length);
@@ -35,15 +30,13 @@
 		}
 		
 		const urls = [
-			// 移除 status=pending 以获取所有任务，增大 page_size
 			'/api/tasks?page_size=300&sort_by=scheduled_time&sort_order=asc',
 			'/api/tasks',
-			'/api/tasks?status=pending' // 作为后备
+			'/api/tasks?status=pending'
 		];
 
 		for (const u of urls) {
 			try {
-				// 使用 include 凭证模式并附加可能的 token 头
 				const res = await fetch(u, { 
 					credentials: 'include', 
 					headers: getAuthHeaders() 
@@ -54,8 +47,6 @@
 					continue; 
 				}
 
-				// === 关键：一旦获得 200 OK，必须在此处处理完毕 ===
-				
 				let data;
 				try {
 					const text = await res.text();
@@ -71,7 +62,6 @@
 
 				console.log('[calendar] loaded data from', u, data);
 
-				// 策略：深度查找数组
 				let tasks = null;
 				if (Array.isArray(data)) {
 					tasks = data;
@@ -135,7 +125,6 @@
 			if (!dt && t && t.next && (t.next.scheduled || t.next.run_at)) dt = t.next.scheduled || t.next.run_at;
 			const parsed = parseDateFlexible(dt);
 			
-			// 检测是否为重复任务
 			const isRecurring = !!(t && (
 				t.is_recurring || 
 				t.isRecurring || 
@@ -157,7 +146,6 @@
 		}).filter(t => t.scheduled && !isNaN(t.scheduled));
 	}
 
-	// 渲染日历
 	function renderCalendar(year, month, tasks) {
 		const grid = document.getElementById('calendarGrid');
 		const monthLabel = document.getElementById('calendarMonthLabel');
@@ -165,22 +153,25 @@
 		if (!grid || !monthLabel) return;
 		grid.innerHTML = '';
 		monthLabel.textContent = new Date(year, month, 1).toLocaleString('zh-CN', { month: 'long', year: 'numeric' });
-		// 清空任务列表并隐藏
 		if (dayPanel) {
 			dayPanel.innerHTML = '';
 			dayPanel.style.display = 'none';
 		}
 
-		// 获取今天的日期信息
 		const today = new Date();
 		const todayYear = today.getFullYear();
 		const todayMonth = today.getMonth();
 		const todayDate = today.getDate();
 
-		// weekday header
 		const weekdays = ['日','一','二','三','四','五','六'];
-		const header = document.createElement('div'); header.className = 'calendar-row calendar-weekdays';
-		for (const w of weekdays) { const c=document.createElement('div'); c.className='calendar-cell calendar-weekday'; c.textContent=w; header.appendChild(c); }
+		const header = document.createElement('div'); 
+		header.className = 'calendar-row calendar-weekdays';
+		for (const w of weekdays) { 
+			const c=document.createElement('div'); 
+			c.className='calendar-cell calendar-weekday'; 
+			c.textContent=w; 
+			header.appendChild(c); 
+		}
 		grid.appendChild(header);
 
 		const start = new Date(year, month, 1);
@@ -194,7 +185,11 @@
 			(map[iso] = map[iso]||[]).push(t);
 		}
 
-		const createEmpty = () => { const c = document.createElement('div'); c.className='calendar-cell calendar-day empty'; return c; };
+		const createEmpty = () => { 
+			const c = document.createElement('div'); 
+			c.className='calendar-cell calendar-day empty'; 
+			return c; 
+		};
 
 		const cells = [];
 		for (let i=0;i<firstWeekday;i++) cells.push(createEmpty());
@@ -202,44 +197,78 @@
 			const cell = document.createElement('div'); 
 			cell.className='calendar-cell calendar-day';
 			
-			// 判断是否是今天
 			if (year === todayYear && month === todayMonth && d === todayDate) {
 				cell.classList.add('today');
 			}
 			
-			const dn = document.createElement('div'); dn.className='calendar-day-number'; dn.textContent = String(d); cell.appendChild(dn);
+			const dn = document.createElement('div'); 
+			dn.className='calendar-day-number'; 
+			dn.textContent = String(d); 
+			cell.appendChild(dn);
+			
 			const iso = toDateIsoOnly(new Date(year, month, d));
+			cell.dataset.date = iso;
+			
 			const list = map[iso] || [];
 			if (list.length) {
-				const badge = document.createElement('div'); badge.className='calendar-badge'; badge.textContent = String(list.length); cell.appendChild(badge);
-				const preview = document.createElement('ul'); preview.className='calendar-day-preview';
+				const badge = document.createElement('div'); 
+				badge.className='calendar-badge'; 
+				badge.textContent = String(list.length); 
+				cell.appendChild(badge);
+				
+				const preview = document.createElement('ul'); 
+				preview.className='calendar-day-preview';
+				
+				let draggableCount = 0;
 				for (const t of list.slice(0,3)) { 
 					const li=document.createElement('li'); 
 					li.textContent = t.title; 
-					// 添加状态类名和重复任务类名
 					li.className = 'status-' + (t.status || 'pending');
+					li.dataset.taskId = t.id;
+					
+					// 调试日志：输出每个任务的状态
+					console.log('[calendar] Rendering task:', {
+						id: t.id,
+						title: t.title,
+						status: t.status,
+						isRecurring: t.isRecurring,
+						willBeDraggable: !t.isRecurring && t.status === 'pending'
+					});
+					
 					if (t.isRecurring) {
 						li.classList.add('recurring');
+					} else if (t.status === 'pending') {
+						// ✅ 只有待发送状态的非重复任务可拖拽
+						li.classList.add('draggable');
+						draggableCount++;
+						console.log('[calendar] Added draggable class to task:', t.id, t.title);
 					}
+					
 					preview.appendChild(li); 
 				}
+				
+				console.log('[calendar] Date', iso, '- Draggable tasks:', draggableCount, '/', list.slice(0,3).length);
 				cell.appendChild(preview);
 			}
-			// 为所有日期（包括无任务的）添加点击事件
-			cell.addEventListener('click', () => {
-				// 移除所有日期的选中状态
+			
+			cell.addEventListener('click', (e) => {
+				if (e.target.classList.contains('draggable') || e.target.closest('.draggable')) {
+					return;
+				}
+				
 				document.querySelectorAll('.calendar-day.selected').forEach(el => {
 					el.classList.remove('selected');
 				});
-				// 为当前日期添加选中状态
 				cell.classList.add('selected');
 				showDayList(iso, list);
 			});
 			cells.push(cell);
 		}
+		
 		while (cells.length % 7 !== 0) cells.push(createEmpty());
 		for (let i=0;i<cells.length;i+=7) {
-			const row = document.createElement('div'); row.className='calendar-row';
+			const row = document.createElement('div'); 
+			row.className='calendar-row';
 			for (let j=0;j<7;j++) row.appendChild(cells[i+j]);
 			grid.appendChild(row);
 		}
@@ -247,7 +276,7 @@
 		function showDayList(iso, list) {
 			if (!dayPanel) return;
 			dayPanel.innerHTML = '';
-			dayPanel.style.display = 'block'; // 显示任务列表区域
+			dayPanel.style.display = 'block';
 			
 			const h = document.createElement('h3'); 
 			h.textContent = iso + ' 的任务列表'; 
@@ -255,7 +284,6 @@
 			h.style.fontSize = '1.1rem';
 			dayPanel.appendChild(h);
 
-			// 如果没有任务，显示提示信息
 			if (!list || list.length === 0) {
 				const emptyMsg = document.createElement('div');
 				emptyMsg.style.padding = '20px';
@@ -269,13 +297,10 @@
 
 			const container = document.createElement('div'); 
 			container.className='calendar-task-list';
-			
-			// 按时间排序
 			list.sort((a,b) => (a.scheduled||0) - (b.scheduled||0));
 
 			for (const t of list) {
 				const row = document.createElement('div');
-				// 添加状态类名、重复任务类名和可点击样式
 				row.className = 'calendar-task-row status-' + (t.status || 'pending');
 				if (t.isRecurring) {
 					row.classList.add('recurring');
@@ -285,15 +310,13 @@
 				
 				const timeDiv = document.createElement('div');
 				timeDiv.className = 'calendar-task-time';
-				// 强制 24小时制 HH:mm 对齐
 				timeDiv.textContent = t.scheduled ? t.scheduled.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '--:--';
 				
 				const titleDiv = document.createElement('div');
 				titleDiv.className = 'calendar-task-title';
 				titleDiv.textContent = t.title;
-				titleDiv.title = t.title; // tooltip
+				titleDiv.title = t.title;
 
-				// 状态标签
 				const statusDiv = document.createElement('div');
 				statusDiv.className = 'calendar-task-status-label';
 				const statusMap = { 'pending': '待发送', 'waiting': '等待中', 'sent': '已发送', 'failed': '失败', 'cancelled': '已取消' };
@@ -303,7 +326,6 @@
 				row.appendChild(titleDiv);
 				row.appendChild(statusDiv);
 				
-				// 为整行添加点击事件，点击任意位置都能编辑
 				row.addEventListener('click', function(e) {
 					e.preventDefault();
 					const taskId = this.dataset.taskId;
@@ -312,7 +334,6 @@
 					}
 				});
 				
-				// 添加 hover 效果，增强交互提示
 				row.addEventListener('mouseenter', function() {
 					this.style.backgroundColor = 'rgba(102, 126, 234, 0.08)';
 					this.style.transform = 'translateX(2px)';
@@ -336,13 +357,32 @@
 	async function loadAndRender() {
 		const raw = await fetchPendingTasks();
 		const tasks = normalizeTasks(raw);
-		// 显示所有拉取到的任务（不按时间过滤，防止因时区问题隐藏任务）
 		const filtered = tasks; 
 		filtered.sort((a,b) => a.scheduled - b.scheduled);
-		// 缓存以便其它脚本（若有）使用
 		window.__CALENDAR_TASKS = filtered;
 		console.info('[calendar] rendering tasks:', filtered.length);
 		renderCalendar(currentYear, currentMonth, filtered);
+		
+		// ⚠️ 关键修改：直接在这里检查并初始化拖拽，不使用 setTimeout
+		console.log('[calendar] Checking for draggable items immediately after render...');
+		const draggables = document.querySelectorAll('.calendar-day-preview li.draggable');
+		console.log('[calendar] Found draggable items:', draggables.length);
+		
+		if (draggables.length === 0) {
+			console.warn('[calendar] No draggable items found immediately, will retry...');
+			// 延迟重试
+			setTimeout(() => {
+				const draggables2 = document.querySelectorAll('.calendar-day-preview li.draggable');
+				console.log('[calendar] Retry: Found draggable items:', draggables2.length);
+				if (draggables2.length > 0) {
+					initDragAndDrop();
+				} else {
+					console.error('[calendar] Still no draggable items found after retry!');
+				}
+			}, 500);
+		} else {
+			initDragAndDrop();
+		}
 	}
 
 	function bindControls() {
@@ -362,17 +402,340 @@
 		});
 	}
 
-	// 对外接口
 	window.loadCalendar = function (forceRefresh = false) {
-		// 如果强制刷新，清除缓存
 		if (forceRefresh) {
 			delete window.__TASKS_CACHE;
-			console.log('[calendar] Cache cleared, forcing refresh');
 		}
 		bindControls();
 		loadAndRender();
 	};
 
-	// 自动绑定但不自动加载
 	document.addEventListener('DOMContentLoaded', () => bindControls());
+
+	let draggedTask = null;
+	let draggedElement = null;
+	let draggedTaskBackup = null; // ⚠️ 新增备份变量，防止数据丢失
+
+	function initDragAndDrop() {
+		const calendarGrid = document.getElementById('calendarGrid');
+		if (!calendarGrid) {
+			console.warn('[calendar] Calendar grid not found');
+			return;
+		}
+		
+		if (calendarGrid._dragInitialized) {
+			console.log('[calendar] Already initialized, resetting...');
+			calendarGrid._dragInitialized = false;
+		}
+
+		const draggables = calendarGrid.querySelectorAll('.calendar-day-preview li.draggable');
+		console.log('[calendar] initDragAndDrop: Found', draggables.length, 'draggable items');
+		
+		if (draggables.length === 0) {
+			console.error('[calendar] No draggable items found in initDragAndDrop!');
+			// 输出 DOM 结构用于调试
+			console.log('[calendar] calendarGrid innerHTML sample:', calendarGrid.innerHTML.substring(0, 500));
+			return;
+		}
+		
+		draggables.forEach((item, index) => {
+			// 设置拖拽属性
+			item.setAttribute('draggable', 'true');
+			item.draggable = true;
+			
+			// 强制设置样式
+			item.style.cssText = 'cursor: grab !important; user-select: none; -webkit-user-select: none; -webkit-user-drag: element;';
+			
+			console.log(`[calendar] Setup item ${index}:`, {
+				title: item.textContent,
+				taskId: item.dataset.taskId,
+				draggableAttr: item.getAttribute('draggable'),
+				draggableProp: item.draggable,
+				hasClass: item.classList.contains('draggable')
+			});
+			
+			// 直接在元素上绑定事件
+			item.ondragstart = function(e) {
+				console.log('[calendar] ondragstart triggered on item', index);
+				handleDragStart(e);
+			};
+		});
+
+		// 全局事件监听
+		calendarGrid.addEventListener('dragstart', handleDragStart, false);
+		calendarGrid.addEventListener('dragend', handleDragEnd, false);
+		calendarGrid.addEventListener('dragover', handleDragOver, false);
+		calendarGrid.addEventListener('dragenter', handleDragEnter, false);
+		calendarGrid.addEventListener('dragleave', handleDragLeave, false);
+		calendarGrid.addEventListener('drop', handleDrop, false);
+
+		calendarGrid._dragInitialized = true;
+		console.log('[calendar] Drag and drop initialized successfully');
+		
+		// 验证
+		if (draggables.length > 0) {
+			const first = draggables[0];
+			console.log('[calendar] First item final check:', {
+				'getAttribute("draggable")': first.getAttribute('draggable'),
+				'element.draggable': first.draggable,
+				'can be dragged': first.draggable === true
+			});
+		}
+	}
+
+	function handleDragStart(e) {
+		if (e.target.tagName !== 'LI') return;
+		const taskItem = e.target;
+		
+		if (taskItem.classList.contains('recurring')) {
+			e.preventDefault();
+			return;
+		}
+
+		if (!taskItem.classList.contains('draggable')) {
+			e.preventDefault();
+			return;
+		}
+
+		const taskId = taskItem.dataset.taskId;
+		if (!taskId) return;
+
+		const allTasks = window.__CALENDAR_TASKS || [];
+		const taskData = allTasks.find(t => t.id.toString() === taskId.toString());
+		
+		if (!taskData) return;
+
+		draggedTask = taskData;
+		draggedElement = taskItem;
+		draggedTaskBackup = taskData; // ⚠️ 备份任务数据
+		
+		console.log('[calendar] Drag started, task data:', {
+			id: taskData.id,
+			title: taskData.title,
+			hasRaw: !!taskData.raw
+		});
+		
+		e.dataTransfer.effectAllowed = 'move';
+		e.dataTransfer.setData('text/plain', taskItem.textContent);
+		
+		setTimeout(() => {
+			if (draggedElement) {
+				draggedElement.classList.add('dragging');
+			}
+		}, 0);
+	}
+
+	function handleDragEnd(e) {
+		if (draggedElement) {
+			draggedElement.classList.remove('dragging');
+		}
+		
+		document.querySelectorAll('.calendar-day.drag-over').forEach(day => {
+			day.classList.remove('drag-over');
+		});
+		
+		// ⚠️ 不要立即清空，等 drop 完成后再清空
+		console.log('[calendar] Drag ended, keeping task data for drop');
+	}
+
+	function handleDragOver(e) {
+		if (e.preventDefault) {
+			e.preventDefault();
+		}
+		e.dataTransfer.dropEffect = 'move';
+		return false;
+	}
+
+	function handleDragEnter(e) {
+		const calendarDay = e.target.closest('.calendar-day');
+		if (calendarDay && !calendarDay.classList.contains('empty') && (draggedTask || draggedTaskBackup)) {
+			calendarDay.classList.add('drag-over');
+		}
+	}
+
+	function handleDragLeave(e) {
+		const calendarDay = e.target.closest('.calendar-day');
+		if (calendarDay && e.target === calendarDay) {
+			calendarDay.classList.remove('drag-over');
+		}
+	}
+
+	async function handleDrop(e) {
+		if (e.stopPropagation) e.stopPropagation();
+		e.preventDefault();
+
+		// 使用备份数据（如果主数据丢失）
+		const task = draggedTask || draggedTaskBackup;
+
+		console.log('[calendar] Drop event triggered, task state:', {
+			draggedTask: draggedTask,
+			draggedTaskBackup: draggedTaskBackup,
+			finalTask: task
+		});
+
+		const calendarDay = e.target.closest('.calendar-day');
+		if (!calendarDay || calendarDay.classList.contains('empty') || !task) {
+			console.warn('[calendar] Invalid drop:', {
+				hasCalendarDay: !!calendarDay,
+				isEmpty: calendarDay?.classList.contains('empty'),
+				hasTask: !!task
+			});
+			draggedTask = null;
+			draggedElement = null;
+			draggedTaskBackup = null;
+			return false;
+		}
+
+		calendarDay.classList.remove('drag-over');
+
+		const targetDate = calendarDay.dataset.date;
+		if (!targetDate) {
+			console.error('[calendar] Target date not found');
+			draggedTask = null;
+			draggedElement = null;
+			draggedTaskBackup = null;
+			return false;
+		}
+
+		if (!task.scheduled) {
+			console.error('[calendar] Invalid task:', task);
+			if (typeof showNotification === 'function') {
+				showNotification('任务数据无效，请刷新页面后重试', 'error');
+			}
+			draggedTask = null;
+			draggedElement = null;
+			draggedTaskBackup = null;
+			return false;
+		}
+
+		const originalDateTime = task.scheduled;
+		const [targetYear, targetMonth, targetDay] = targetDate.split('-').map(Number);
+		
+		const targetDateTime = new Date(
+			targetYear,
+			targetMonth - 1,
+			targetDay,
+			originalDateTime.getHours(),
+			originalDateTime.getMinutes(),
+			originalDateTime.getSeconds()
+		);
+
+		const originalDate = toDateIsoOnly(originalDateTime);
+		if (targetDate === originalDate) {
+			draggedTask = null;
+			draggedElement = null;
+			draggedTaskBackup = null;
+			return false;
+		}
+
+		const originalTimeStr = originalDateTime.toLocaleTimeString('zh-CN', {
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false
+		});
+		
+		const formattedDate = formatDate(targetDateTime);
+		
+		// ⚠️ 使用更清晰的格式化消息（支持换行）
+		const confirmed = await showConfirmDialog({
+			title: '确认调整任务日期',
+			message: `将任务「${task.title}」\n\n从 ${originalDate} → ${targetDate}\n\n⏰ 时间保持：${originalTimeStr}`,
+			confirmText: '确认调整',
+			cancelText: '取消'
+		});
+
+		if (!confirmed) {
+			draggedTask = null;
+			draggedElement = null;
+			draggedTaskBackup = null;
+			return false;
+		}
+
+		try {
+			const localDateTimeString = formatDateTimeForAPI(targetDateTime);
+			
+			const updateData = {
+				scheduled_time: localDateTimeString
+			};
+
+			if (task.raw) {
+				updateData.title = task.raw.title || task.title;
+				updateData.content = task.raw.content || '';
+				
+				if (task.raw.config) {
+					updateData.config = task.raw.config;
+				}
+				
+				if (task.raw.channel_config) {
+					updateData.channel_config = task.raw.channel_config;
+				}
+			} else {
+				updateData.title = task.title || '';
+				updateData.content = task.content || '';
+				console.warn('[calendar] task.raw is missing, using top-level properties');
+			}
+
+			console.log('[calendar] Updating task with data:', updateData);
+
+			const response = await fetch(`/api/tasks/${task.id}`, {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+					...getAuthHeaders()
+				},
+				credentials: 'include',
+				body: JSON.stringify(updateData)
+			});
+
+			if (!response.ok) {
+				const error = await response.json().catch(() => ({ error: '更新失败' }));
+				throw new Error(error.error || '更新失败');
+			}
+
+			// ⚠️ 使用自定义通知
+			if (typeof showNotification === 'function') {
+				showNotification(`✅ 任务已调整到 ${targetDate} ${originalTimeStr}`, 'success');
+			}
+			
+			delete window.__TASKS_CACHE;
+			loadAndRender();
+			
+		} catch (error) {
+			console.error('[calendar] Error updating task:', error);
+			
+			// ⚠️ 使用自定义通知
+			if (typeof showNotification === 'function') {
+				showNotification(`调整失败：${error.message}`, 'error');
+			}
+		} finally {
+			// ⚠️ 无论成功失败，都要清空拖拽状态
+			draggedTask = null;
+			draggedElement = null;
+			draggedTaskBackup = null;
+		}
+
+		return false;
+	}
+
+	// 格式化日期显示（用于UI显示）
+	function formatDate(date) {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		return `${year}-${month}-${day} ${hours}:${minutes}`;
+	}
+
+	// ⚠️ 新增：格式化日期时间为API所需的格式（本地时间，不是UTC）
+	function formatDateTimeForAPI(date) {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, '0');
+		const day = String(date.getDate()).padStart(2, '0');
+		const hours = String(date.getHours()).padStart(2, '0');
+		const minutes = String(date.getMinutes()).padStart(2, '0');
+		const seconds = String(date.getSeconds()).padStart(2, '0');
+		return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+	}
+
 })();
