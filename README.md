@@ -297,8 +297,6 @@ docker stop notify-scheduler
 ├── start.sh                   # 启动脚本
 ├── stop.sh                    # 停止脚本
 ├── config_examples.json       # 配置示例
-├── example_usage.py           # API 使用示例
-├── test_system.py            # 系统测试脚本
 └── README.md                  # 项目文档
 ```
 
@@ -443,6 +441,7 @@ A: 在 `notifier.py` 中添加新的发送方法，并在 `models.py` 中添加�
 - [ ] 多用户权限管理
 - [ ] 通知发送历史记录
 - [ ] API 认证和限流
+- [x] 日历视图支持点击任务进行编辑
 
 ## License
 

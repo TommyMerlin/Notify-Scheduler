@@ -4,7 +4,7 @@ services:
     container_name: notify-scheduler
     restart: unless-stopped
     ports:
-      - "15001:5000"
+      - "5000:5000"
     volumes:
       # 数据库持久化
       - ./data:/app/data
