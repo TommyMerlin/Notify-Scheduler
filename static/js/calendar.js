@@ -154,6 +154,12 @@
 		monthLabel.textContent = new Date(year, month, 1).toLocaleString('zh-CN', { month: 'long', year: 'numeric' });
 		if (dayPanel) dayPanel.innerHTML = '';
 
+		// 获取今天的日期信息
+		const today = new Date();
+		const todayYear = today.getFullYear();
+		const todayMonth = today.getMonth();
+		const todayDate = today.getDate();
+
 		// weekday header
 		const weekdays = ['日','一','二','三','四','五','六'];
 		const header = document.createElement('div'); header.className = 'calendar-row calendar-weekdays';
@@ -176,7 +182,14 @@
 		const cells = [];
 		for (let i=0;i<firstWeekday;i++) cells.push(createEmpty());
 		for (let d=1; d<= total; d++) {
-			const cell = document.createElement('div'); cell.className='calendar-cell calendar-day';
+			const cell = document.createElement('div'); 
+			cell.className='calendar-cell calendar-day';
+			
+			// 判断是否是今天
+			if (year === todayYear && month === todayMonth && d === todayDate) {
+				cell.classList.add('today');
+			}
+			
 			const dn = document.createElement('div'); dn.className='calendar-day-number'; dn.textContent = String(d); cell.appendChild(dn);
 			const iso = toDateIsoOnly(new Date(year, month, d));
 			const list = map[iso] || [];

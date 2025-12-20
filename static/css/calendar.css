@@ -186,3 +186,79 @@ body.calendar-active .card.card-section[data-section="form"],
 body.calendar-active .card.card-section[data-section="list"] {
 	display: none !important;
 }
+
+/* 突出显示当前日期 - 使用更柔和的颜色 */
+.calendar-day.today {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%) !important;
+    border: 2px solid #667eea !important;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.25) !important;
+    transform: scale(1.02);
+    position: relative;
+    z-index: 10;
+}
+
+.calendar-day.today::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border: 2px solid rgba(102, 126, 234, 0.3);
+    border-radius: 10px;
+    pointer-events: none;
+    animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4);
+    }
+    50% {
+        opacity: 0.6;
+        box-shadow: 0 0 0 6px rgba(102, 126, 234, 0);
+    }
+}
+
+.calendar-day.today .calendar-day-number {
+    color: #667eea !important;
+    font-weight: 700 !important;
+    font-size: 1.1rem !important;
+    text-shadow: none;
+}
+
+.calendar-day.today .calendar-badge {
+    background: #667eea !important;
+    color: white !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+}
+
+.calendar-day.today .calendar-day-preview li {
+    background: rgba(102, 126, 234, 0.12) !important;
+    color: #5a67d8 !important;
+    font-weight: 600 !important;
+    border-left-color: #667eea !important;
+}
+
+.calendar-day.today:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%) !important;
+    transform: scale(1.04) translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35) !important;
+}
+
+/* 确保深色主题下也能正常显示 */
+body.dark-mode .calendar-day.today {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%) !important;
+    border-color: #667eea !important;
+}
+
+body.dark-mode .calendar-day.today .calendar-day-number {
+    color: #8b9cff !important;
+}
+
+body.dark-mode .calendar-day.today .calendar-day-preview li {
+    background: rgba(102, 126, 234, 0.15) !important;
+    color: #a5b4fc !important;
+}
