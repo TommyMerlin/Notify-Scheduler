@@ -32,12 +32,13 @@ class NotifyChannel(enum.Enum):
         return self.value
 
 
-class NotifyStatus(enum.Enum):
+class NotifyStatus(str, enum.Enum):
     """通知状态枚举"""
     PENDING = "pending"  # 待发送
     SENT = "sent"  # 已发送
     FAILED = "failed"  # 发送失败
     CANCELLED = "cancelled"  # 已取消
+    PAUSED = "paused"  # 暂停
 
     def __str__(self):
         return self.value

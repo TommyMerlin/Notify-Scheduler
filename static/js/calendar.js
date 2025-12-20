@@ -319,7 +319,7 @@
 
 				const statusDiv = document.createElement('div');
 				statusDiv.className = 'calendar-task-status-label';
-				const statusMap = { 'pending': '待发送', 'waiting': '等待中', 'sent': '已发送', 'failed': '失败', 'cancelled': '已取消' };
+				const statusMap = { 'pending': '待发送', 'waiting': '等待中', 'sent': '已发送', 'failed': '失败', 'cancelled': '已取消', 'paused': '已暂停' };
 				statusDiv.textContent = statusMap[t.status] || t.status;
 
 				row.appendChild(timeDiv);

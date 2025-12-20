@@ -54,6 +54,11 @@ function showMainApp() {
     loadTasks();
     initAppEvents();
     setDefaultTime();
+
+    // 尝试加载日历（如果存在日历脚本且在主界面显示后）
+    if (typeof window.loadCalendar === 'function') {
+        setTimeout(window.loadCalendar, 200);
+    }
 }
 
 // 切换登录/注册标签
@@ -156,7 +161,19 @@ function logout() {
 function initAppEvents() {
     document.getElementById('taskForm').addEventListener('submit', submitTaskForm);
     document.getElementById('channel').addEventListener('change', onChannelChange);
-    document.getElementById('statusFilter').addEventListener('change', loadTasks);
+    
+    const statusFilter = document.getElementById('statusFilter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', loadTasks);
+        // 动态添加“已暂停”选项，如果 HTML 中未添加
+        if (!statusFilter.querySelector('option[value="paused"]')) {
+            const option = document.createElement('option');
+            option.value = 'paused';
+            option.textContent = '已暂停';
+            statusFilter.appendChild(option);
+        }
+    }
+
     const recurringFilterEl = document.getElementById('recurringFilter');
     if (recurringFilterEl) recurringFilterEl.addEventListener('change', loadTasks);
     document.getElementById('sortField').addEventListener('change', loadTasks);
@@ -827,7 +844,8 @@ function createTaskElement(task) {
         'pending': '待发送',
         'sent': '已发送',
         'failed': '发送失败',
-        'cancelled': '已取消'
+        'cancelled': '已取消',
+        'paused': '已暂停'
     }[task.status] || task.status;
 
     const expiredBadgeHTML = isExpired ? `<span class="status-badge status-expired">已过期</span>` : '';
@@ -858,6 +876,11 @@ function createTaskElement(task) {
         <div class="task-actions">
             ${task.status === 'pending' ? `
                 <button class="btn btn-sm btn-info" onclick="editTask(${task.id})">编辑</button>
+                ${task.is_recurring ? `<button class="btn btn-sm btn-warning" onclick="toggleTaskPause(${task.id}, 'pause')">暂停</button>` : ''}
+                <button class="btn btn-sm btn-danger" onclick="cancelTask(${task.id})">取消任务</button>
+            ` : task.status === 'paused' ? `
+                <button class="btn btn-sm btn-info" onclick="editTask(${task.id})">编辑</button>
+                <button class="btn btn-sm btn-success" onclick="toggleTaskPause(${task.id}, 'resume')">恢复</button>
                 <button class="btn btn-sm btn-danger" onclick="cancelTask(${task.id})">取消任务</button>
             ` : `
                 <button class="btn btn-sm btn-success" onclick="editTask(${task.id})">重新启用</button>
@@ -935,6 +958,12 @@ async function submitTaskForm(e) {
                 scheduledTimeInput.setAttribute('required', 'required');
             }
             loadTasks();
+
+            // 刷新日历
+            if (typeof window.loadCalendar === 'function') {
+                delete window.__TASKS_CACHE;
+                window.loadCalendar();
+            }
         } else {
             showNotification('创建失败: ' + result.error, 'error');
         }
@@ -1045,11 +1074,64 @@ async function cancelTask(taskId) {
         if (response.ok) {
             showNotification('任务已取消', 'success');
             loadTasks();
+
+            // 刷新日历
+            if (typeof window.loadCalendar === 'function') {
+                delete window.__TASKS_CACHE;
+                window.loadCalendar();
+            }
         } else {
             showNotification('取消失败: ' + result.error, 'error');
         }
     } catch (error) {
         showNotification('取消失败: ' + error.message, 'error');
+    }
+}
+
+// 切换任务暂停/恢复状态
+async function toggleTaskPause(taskId, action) {
+    const isPause = action === 'pause';
+    const confirmMsg = isPause 
+        ? '确定要暂停这个重复任务吗？暂停后将不再自动执行。' 
+        : '确定要恢复这个任务吗？恢复后将根据 Cron 表达式重新计算下次执行时间。';
+    
+    const confirmed = await showConfirmDialog({
+        title: isPause ? '暂停任务' : '恢复任务',
+        message: confirmMsg,
+        confirmText: isPause ? '暂停' : '恢复',
+        cancelText: '取消'
+    });
+
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({ 
+                status: isPause ? 'paused' : 'pending' 
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showNotification(isPause ? '任务已暂停' : '任务已恢复', 'success');
+            loadTasks();
+
+            // 刷新日历
+            if (typeof window.loadCalendar === 'function') {
+                delete window.__TASKS_CACHE;
+                window.loadCalendar();
+            }
+        } else {
+            showNotification((isPause ? '暂停' : '恢复') + '失败: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showNotification('操作失败: ' + error.message, 'error');
     }
 }
 

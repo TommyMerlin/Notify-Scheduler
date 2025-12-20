@@ -80,6 +80,11 @@ class NotifyScheduler:
                     logger.info(f"任务 {task_id} 已取消，跳过执行")
                     return
 
+                # 检查暂停状态
+                if task.status == NotifyStatus.PAUSED:
+                    logger.info(f"任务 {task_id} 已暂停，跳过执行")
+                    return
+
                 logger.info(f"开始执行任务 {task_id}: {task.title}")
 
                 # 解析配置

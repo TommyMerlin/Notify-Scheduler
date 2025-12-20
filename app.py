@@ -318,8 +318,8 @@ def update_task(task_id):
     """
     更新任务
 
-    可更新字段: title, content, scheduled_time, channel_config
-    支持重新启用已取消或已执行的任务
+    可更新字段: title, content, scheduled_time, channel_config, status
+    支持重新启用已取消或已执行的任务，以及暂停/恢复重复任务
     """
     try:
         data = request.get_json()
@@ -333,6 +333,45 @@ def update_task(task_id):
 
             # 记录原始状态
             original_status = task.status
+
+            # 处理状态变更（暂停/恢复）
+            if 'status' in data:
+                try:
+                    target_status_str = data['status']
+                    
+                    # 暂停任务
+                    if target_status_str == 'paused':
+                        task.status = NotifyStatus.PAUSED
+                        # 从调度器移除
+                        scheduler.remove_task(task_id, task.is_recurring)
+                        db.commit()
+                        return jsonify({
+                            'message': '任务已暂停',
+                            'task': task.to_dict()
+                        })
+                    
+                    # 恢复任务
+                    elif target_status_str == 'pending' and task.status == NotifyStatus.PAUSED:
+                        task.status = NotifyStatus.PENDING
+                        # 恢复时重新计算下一次执行时间
+                        if task.is_recurring and task.cron_expression:
+                            try:
+                                from apscheduler.triggers.cron import CronTrigger
+                                trigger = CronTrigger.from_crontab(task.cron_expression)
+                                next_run = trigger.get_next_fire_time(None, datetime.now())
+                                if next_run:
+                                    task.scheduled_time = next_run
+                            except Exception as e:
+                                return jsonify({'error': f'计算下一次执行时间失败: {str(e)}'}), 400
+                        
+                        scheduler.add_task(task)
+                        db.commit()
+                        return jsonify({
+                            'message': '任务已恢复',
+                            'task': task.to_dict()
+                        })
+                except Exception as e:
+                    return jsonify({'error': f'状态更新失败: {str(e)}'}), 400
 
             # 更新字段
             if 'title' in data:
@@ -361,8 +400,11 @@ def update_task(task_id):
                 except Exception as e:
                     return jsonify({'error': f'根据 Cron 表达式计算下一次执行时间失败: {str(e)}'}), 400
 
-            # 如果任务之前不是 PENDING 状态，重新启用它
-            if original_status != NotifyStatus.PENDING:
+            # 如果任务之前不是 PENDING 状态（且不是暂停操作），重新启用它
+            # 注意：如果当前是 PAUSED 且没有明确请求 resume，通常保持 PAUSED
+            is_paused = task.status == NotifyStatus.PAUSED
+            
+            if original_status != NotifyStatus.PENDING and not is_paused:
                 task.status = NotifyStatus.PENDING
                 task.sent_time = None
                 task.error_msg = None
@@ -370,6 +412,7 @@ def update_task(task_id):
             db.commit()
 
             # 重新添加到调度器（如果任务被重新启用，需要添加到调度器）
+            # 如果是 PAUSED，不添加
             scheduler.remove_task(task_id, task.is_recurring)
             if task.status == NotifyStatus.PENDING:
                 scheduler.add_task(task)

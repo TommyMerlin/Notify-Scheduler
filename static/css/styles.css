@@ -366,6 +366,12 @@ header p {
     box-shadow: 0 12px 28px rgba(56, 189, 248, 0.35);
 }
 
+.btn-warning {
+    background: linear-gradient(120deg, #fbbf24, #d97706);
+    color: white;
+    box-shadow: 0 12px 28px rgba(245, 158, 11, 0.35);
+}
+
 .task-list {
     max-height: 620px;
     overflow-y: auto;
@@ -494,6 +500,11 @@ header p {
 .status-cancelled {
     background: rgba(148, 163, 184, 0.2);
     color: #475569;
+}
+
+.status-paused {
+    background: rgba(251, 146, 60, 0.15);
+    color: #c2410c;
 }
 
 .channel-badge {
