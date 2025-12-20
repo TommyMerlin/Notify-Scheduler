@@ -219,8 +219,10 @@
 
 			for (const t of list) {
 				const row = document.createElement('div');
-				// 添加状态类名
+				// 添加状态类名和可点击样式
 				row.className = 'calendar-task-row status-' + (t.status || 'pending');
+				row.style.cursor = 'pointer'; // 添加手型光标
+				row.dataset.taskId = String(t.id); // 在行上也添加 taskId
 				
 				const timeDiv = document.createElement('div');
 				timeDiv.className = 'calendar-task-time';
@@ -241,6 +243,27 @@
 				row.appendChild(timeDiv);
 				row.appendChild(titleDiv);
 				row.appendChild(statusDiv);
+				
+				// 为整行添加点击事件，点击任意位置都能编辑
+				row.addEventListener('click', function(e) {
+					e.preventDefault();
+					const taskId = this.dataset.taskId;
+					if (taskId && typeof window.openEditTaskModal === 'function') {
+						window.openEditTaskModal(taskId);
+					}
+				});
+				
+				// 添加 hover 效果，增强交互提示
+				row.addEventListener('mouseenter', function() {
+					this.style.backgroundColor = 'rgba(102, 126, 234, 0.08)';
+					this.style.transform = 'translateX(2px)';
+					this.style.transition = 'all 0.2s ease';
+				});
+				row.addEventListener('mouseleave', function() {
+					this.style.backgroundColor = '';
+					this.style.transform = '';
+				});
+				
 				container.appendChild(row);
 			}
 			dayPanel.appendChild(container);
@@ -281,7 +304,12 @@
 	}
 
 	// 对外接口
-	window.loadCalendar = function () {
+	window.loadCalendar = function (forceRefresh = false) {
+		// 如果强制刷新，清除缓存
+		if (forceRefresh) {
+			delete window.__TASKS_CACHE;
+			console.log('[calendar] Cache cleared, forcing refresh');
+		}
 		bindControls();
 		loadAndRender();
 	};

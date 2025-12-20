@@ -370,7 +370,7 @@
             btn.setAttribute('aria-pressed', 'false');
         }
 
-        // 切换到日历视图（header 按钮变为“返回主页面”）
+        // 切换到日历视图（header 按钮变为"返回主页面"）
         window.openCalendarView = function () {
             document.querySelectorAll('.card.card-section').forEach(section => {
                 showSection(section, section.dataset.section === 'calendar');
@@ -405,6 +405,88 @@
             document.body.classList.remove('calendar-active');
         };
 
+        // 初始化日历任务列表的编辑功能
+        function initCalendarTaskActions() {
+            const calendarDayTasks = document.getElementById('calendarDayTasks');
+            if (!calendarDayTasks) return;
+
+            // 使用事件委托处理动态生成的按钮
+            calendarDayTasks.addEventListener('click', function(e) {
+                console.log('Calendar day tasks clicked:', e.target); // 调试日志
+                
+                // 查找编辑按钮（支持多种可能的选择器）
+                let editBtn = e.target;
+                
+                // 如果点击的是按钮内的元素，向上查找按钮
+                if (!editBtn.matches('button')) {
+                    editBtn = editBtn.closest('button');
+                }
+                
+                // 检查是否是编辑按钮
+                if (editBtn && (
+                    editBtn.classList.contains('calendar-task-edit') ||
+                    editBtn.dataset.action === 'edit' ||
+                    editBtn.textContent.includes('✏️')
+                )) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const taskId = editBtn.dataset.taskId || editBtn.getAttribute('data-task-id');
+                    console.log('Edit button clicked, taskId:', taskId); // 调试日志
+                    
+                    if (taskId) {
+                        // 等待 openEditTaskModal 函数可用
+                        const tryOpenModal = () => {
+                            if (typeof window.openEditTaskModal === 'function') {
+                                console.log('Opening edit modal for task:', taskId);
+                                window.openEditTaskModal(taskId);
+                            } else {
+                                console.warn('openEditTaskModal not ready, retrying...');
+                                setTimeout(tryOpenModal, 100);
+                            }
+                        };
+                        tryOpenModal();
+                    } else {
+                        console.error('Task ID not found on button:', editBtn);
+                    }
+                    return;
+                }
+
+                // 处理取消按钮
+                let cancelBtn = e.target;
+                if (!cancelBtn.matches('button')) {
+                    cancelBtn = cancelBtn.closest('button');
+                }
+                
+                if (cancelBtn && cancelBtn.dataset.action === 'cancel') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const taskId = cancelBtn.dataset.taskId || cancelBtn.getAttribute('data-task-id');
+                    console.log('Cancel button clicked, taskId:', taskId); // 调试日志
+                    if (taskId && typeof window.cancelTask === 'function') {
+                        window.cancelTask(taskId);
+                    }
+                }
+            }, true); // 使用捕获阶段确保事件能被捕获
+
+            // 使用 MutationObserver 监听任务列表的变化
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    if (mutation.addedNodes.length > 0) {
+                        console.log('Calendar day tasks updated, checking for buttons...'); // 调试日志
+                        // 验证按钮是否正确生成
+                        const buttons = calendarDayTasks.querySelectorAll('button[data-action="edit"]');
+                        console.log('Found edit buttons:', buttons.length);
+                    }
+                });
+            });
+
+            observer.observe(calendarDayTasks, {
+                childList: true,
+                subtree: true
+            });
+        }
+
         // 当用户通过移动端 tab 切换时，保持 header 状态同步
         document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('.mobile-tab').forEach(t => {
@@ -418,6 +500,9 @@
                     }
                 });
             });
+
+            // 初始化日历任务操作
+            initCalendarTaskActions();
         });
     })();
     </script>

@@ -1404,6 +1404,11 @@ async function editTask(taskId) {
     }
 }
 
+// 对外暴露的编辑任务函数（供日历视图调用）
+window.openEditTaskModal = function(taskId) {
+    editTask(taskId);
+};
+
 // 显示编辑任务模态框
 function showEditTaskModal(task) {
     // 添加加载动画
@@ -1609,6 +1614,17 @@ async function handleEditTaskSubmit(e) {
             showNotification('任务更新成功！', 'success');
             closeEditTaskModal();
             loadTasks();
+            
+            // 如果当前在日历视图，重新加载日历数据
+            const calendarSection = document.querySelector('.card-section[data-section="calendar"]');
+            if (calendarSection && calendarSection.classList.contains('active')) {
+                // 清除缓存，强制重新获取数据
+                delete window.__TASKS_CACHE;
+                if (typeof window.loadCalendar === 'function') {
+                    console.log('Reloading calendar after task update');
+                    window.loadCalendar();
+                }
+            }
         } else {
             showNotification('更新失败: ' + result.error, 'error');
         }
