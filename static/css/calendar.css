@@ -102,7 +102,13 @@
 	border-radius: 8px; 
 	margin-top: 16px; 
 	box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+	display: none; /* 默认隐藏 */
 }
+
+.calendar-day-tasks:not(:empty) {
+	display: block; /* 有内容时显示 */
+}
+
 .calendar-task-list { 
 	display: flex; 
 	flex-direction: column; 
@@ -187,6 +193,45 @@ body.calendar-active .card.card-section[data-section="list"] {
 	display: none !important;
 }
 
+/* 选中的日期样式 - 使用不同的颜色 */
+.calendar-day.selected {
+    border: 2px solid #27ae60 !important;
+    background: rgba(39, 174, 96, 0.08) !important;
+    box-shadow: 0 2px 8px rgba(39, 174, 96, 0.2) !important;
+}
+
+.calendar-day.selected .calendar-day-number {
+    color: #27ae60 !important;
+    font-weight: 700 !important;
+}
+
+/* 当日期既是今天又被选中时，优先显示选中状态 */
+.calendar-day.today.selected {
+    border: 2px solid #27ae60 !important;
+    background: rgba(39, 174, 96, 0.12) !important;
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3) !important;
+}
+
+.calendar-day.today.selected .calendar-day-number {
+    color: #27ae60 !important;
+}
+
+.calendar-day.today.selected::before {
+    border-color: rgba(39, 174, 96, 0.3);
+    animation: pulse-border-selected 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border-selected {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.4);
+    }
+    50% {
+        opacity: 0.6;
+        box-shadow: 0 0 0 6px rgba(39, 174, 96, 0);
+    }
+}
+
 /* 突出显示当前日期 - 使用更柔和的颜色 */
 .calendar-day.today {
     background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%) !important;
@@ -261,4 +306,13 @@ body.dark-mode .calendar-day.today .calendar-day-number {
 body.dark-mode .calendar-day.today .calendar-day-preview li {
     background: rgba(102, 126, 234, 0.15) !important;
     color: #a5b4fc !important;
+}
+
+body.dark-mode .calendar-day.selected {
+    border-color: #27ae60 !important;
+    background: rgba(39, 174, 96, 0.12) !important;
+}
+
+body.dark-mode .calendar-day.selected .calendar-day-number {
+    color: #2ecc71 !important;
 }

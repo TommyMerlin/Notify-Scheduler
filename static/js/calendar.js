@@ -152,7 +152,11 @@
 		if (!grid || !monthLabel) return;
 		grid.innerHTML = '';
 		monthLabel.textContent = new Date(year, month, 1).toLocaleString('zh-CN', { month: 'long', year: 'numeric' });
-		if (dayPanel) dayPanel.innerHTML = '';
+		// 清空任务列表并隐藏
+		if (dayPanel) {
+			dayPanel.innerHTML = '';
+			dayPanel.style.display = 'none';
+		}
 
 		// 获取今天的日期信息
 		const today = new Date();
@@ -204,8 +208,17 @@
 					preview.appendChild(li); 
 				}
 				cell.appendChild(preview);
-				cell.addEventListener('click', () => showDayList(iso, list));
 			}
+			// 为所有日期（包括无任务的）添加点击事件
+			cell.addEventListener('click', () => {
+				// 移除所有日期的选中状态
+				document.querySelectorAll('.calendar-day.selected').forEach(el => {
+					el.classList.remove('selected');
+				});
+				// 为当前日期添加选中状态
+				cell.classList.add('selected');
+				showDayList(iso, list);
+			});
 			cells.push(cell);
 		}
 		while (cells.length % 7 !== 0) cells.push(createEmpty());
@@ -218,11 +231,25 @@
 		function showDayList(iso, list) {
 			if (!dayPanel) return;
 			dayPanel.innerHTML = '';
+			dayPanel.style.display = 'block'; // 显示任务列表区域
+			
 			const h = document.createElement('h3'); 
 			h.textContent = iso + ' 的任务列表'; 
 			h.style.marginBottom = '12px';
 			h.style.fontSize = '1.1rem';
 			dayPanel.appendChild(h);
+
+			// 如果没有任务，显示提示信息
+			if (!list || list.length === 0) {
+				const emptyMsg = document.createElement('div');
+				emptyMsg.style.padding = '20px';
+				emptyMsg.style.textAlign = 'center';
+				emptyMsg.style.color = 'var(--text-muted, #999)';
+				emptyMsg.style.fontSize = '0.95rem';
+				emptyMsg.textContent = '📭 这一天暂无任务安排';
+				dayPanel.appendChild(emptyMsg);
+				return;
+			}
 
 			const container = document.createElement('div'); 
 			container.className='calendar-task-list';
