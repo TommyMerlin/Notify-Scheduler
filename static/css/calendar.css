@@ -81,39 +81,60 @@
 	white-space:nowrap; 
 	text-overflow:ellipsis; 
 	overflow:hidden; 
-	background: rgba(102, 126, 234, 0.08); /* 浅色背景 */
-	color: #5a67d8; /* 深色文字 */
-	padding: 3px 6px;
+	background: rgba(102, 126, 234, 0.08);
+	color: #5a67d8;
+	padding: 3px 6px 3px 20px; /* 左侧留出空间给徽章 */
 	border-radius: 4px;
 	line-height: 1.3;
 	font-weight: 500;
-	border-left: 2px solid var(--accent, #667eea); /* 左侧强调线 */
+	border-left: 2px solid var(--accent, #667eea);
+	position: relative;
 }
 
-/* 不同状态的任务条样式（日历格子内） */
-.calendar-day-preview li.status-sent { background: rgba(39, 174, 96, 0.1); color: #219150; border-left-color: #27ae60; }
-.calendar-day-preview li.status-failed { background: rgba(231, 76, 60, 0.1); color: #c0392b; border-left-color: #e74c3c; }
-.calendar-day-preview li.status-cancelled { background: rgba(149, 165, 166, 0.1); color: #7f8c8d; border-left-color: #95a5a6; text-decoration: line-through; }
-
-/* 优化后的当天任务列表样式 */
-.calendar-day-tasks { 
-	padding: 16px; 
-	background: var(--panel-bg,#fff); 
-	border-radius: 8px; 
-	margin-top: 16px; 
-	box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-	display: none; /* 默认隐藏 */
+/* 重复任务标识 - 格子内任务条 - 使用圆形徽章 */
+.calendar-day-preview li.recurring::before {
+	content: '';
+	position: absolute;
+	left: 4px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	box-shadow: 0 1px 3px rgba(102, 126, 234, 0.4);
 }
 
-.calendar-day-tasks:not(:empty) {
-	display: block; /* 有内容时显示 */
+/* 重复任务添加循环箭头效果 */
+.calendar-day-preview li.recurring::after {
+	content: '↻';
+	position: absolute;
+	left: 5px;
+	top: 50%;
+	transform: translateY(-50%);
+	font-size: 8px;
+	color: white;
+	font-weight: bold;
+	line-height: 1;
 }
 
-.calendar-task-list { 
-	display: flex; 
-	flex-direction: column; 
-	gap: 8px; 
+/* 重复任务标识 - 任务列表行 - 改为内联徽章 */
+.calendar-task-row.recurring .calendar-task-time::after {
+	content: '↻';
+	display: inline-flex; /* 改为 inline-flex */
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	color: white;
+	font-size: 10px;
+	font-weight: bold;
+	box-shadow: 0 1px 3px rgba(102, 126, 234, 0.3);
+	flex-shrink: 0; /* 防止被压缩 */
 }
+
 .calendar-task-row { 
 	display: flex; 
 	align-items: center; 
@@ -122,6 +143,8 @@
 	border-radius: 6px; 
 	border-left: 4px solid var(--accent, #667eea); 
 	transition: background 0.2s;
+	position: relative;
+	gap: 8px; /* 添加间距 */
 }
 
 /* 不同状态的列表行样式（底部列表） */
@@ -137,9 +160,13 @@
 	font-family: 'Monaco', 'Consolas', monospace; 
 	font-weight: 600; 
 	color: var(--text-muted, #666); 
-	width: 60px; 
+	width: auto; /* 改为自动宽度 */
+	min-width: 60px; /* 设置最小宽度 */
 	flex-shrink: 0; 
-	font-size: 0.95rem; 
+	font-size: 0.95rem;
+	display: flex; /* 使用 flex 布局 */
+	align-items: center; /* 垂直居中 */
+	gap: 4px; /* 时间和徽章之间的间距 */
 }
 .calendar-task-title { 
 	font-weight: 500; 
@@ -147,19 +174,20 @@
 	overflow: hidden; 
 	text-overflow: ellipsis; 
 	white-space: nowrap; 
-	flex: 1; 
+	flex: 1;
+	margin-right: 8px; /* 减少右边距，不再需要为重复标识预留空间 */
 }
 
-/* 列表中的状态标签 */
+/* 列表中的状态标签 - 调整布局 */
 .calendar-task-status-label {
     font-size: 0.75rem;
     padding: 2px 8px;
     border-radius: 12px;
-    margin-left: 12px;
     white-space: nowrap;
     font-weight: 600;
     background: rgba(0,0,0,0.05);
     color: #666;
+    flex-shrink: 0; /* 防止被压缩 */
 }
 .status-pending .calendar-task-status-label, .status-waiting .calendar-task-status-label { color: #5a67d8; background: rgba(102, 126, 234, 0.1); }
 .status-sent .calendar-task-status-label { color: #219150; background: rgba(39, 174, 96, 0.1); }
@@ -315,4 +343,15 @@ body.dark-mode .calendar-day.selected {
 
 body.dark-mode .calendar-day.selected .calendar-day-number {
     color: #2ecc71 !important;
+}
+
+/* 深色主题下的重复任务标识 */
+body.dark-mode .calendar-day-preview li.recurring::before {
+	background: linear-gradient(135deg, #8b9cff 0%, #a78bfa 100%);
+	box-shadow: 0 1px 3px rgba(139, 156, 255, 0.4);
+}
+
+body.dark-mode .calendar-task-row.recurring .calendar-task-time::after {
+	background: linear-gradient(135deg, #8b9cff 0%, #a78bfa 100%);
+	box-shadow: 0 1px 3px rgba(139, 156, 255, 0.3);
 }

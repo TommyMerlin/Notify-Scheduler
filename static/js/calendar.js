@@ -134,11 +134,24 @@
 			}
 			if (!dt && t && t.next && (t.next.scheduled || t.next.run_at)) dt = t.next.scheduled || t.next.run_at;
 			const parsed = parseDateFlexible(dt);
+			
+			// 检测是否为重复任务
+			const isRecurring = !!(t && (
+				t.is_recurring || 
+				t.isRecurring || 
+				t.recurring || 
+				t.cron_expression || 
+				t.cronExpression || 
+				t.recurrence || 
+				t.repeat
+			));
+			
 			return {
 				id: t && (t.id ?? t.taskId ?? t._id) || '',
 				title: t && (t.title ?? t.name ?? t.summary) || ('任务 ' + (t && (t.id || t.taskId) ? ('#' + (t.id || t.taskId)) : '')),
 				scheduled: parsed,
 				status: (t && (t.status ?? t.state) || '').toString().toLowerCase(),
+				isRecurring: isRecurring,
 				raw: t
 			};
 		}).filter(t => t.scheduled && !isNaN(t.scheduled));
@@ -203,8 +216,11 @@
 				for (const t of list.slice(0,3)) { 
 					const li=document.createElement('li'); 
 					li.textContent = t.title; 
-					// 添加状态类名
+					// 添加状态类名和重复任务类名
 					li.className = 'status-' + (t.status || 'pending');
+					if (t.isRecurring) {
+						li.classList.add('recurring');
+					}
 					preview.appendChild(li); 
 				}
 				cell.appendChild(preview);
@@ -259,10 +275,13 @@
 
 			for (const t of list) {
 				const row = document.createElement('div');
-				// 添加状态类名和可点击样式
+				// 添加状态类名、重复任务类名和可点击样式
 				row.className = 'calendar-task-row status-' + (t.status || 'pending');
-				row.style.cursor = 'pointer'; // 添加手型光标
-				row.dataset.taskId = String(t.id); // 在行上也添加 taskId
+				if (t.isRecurring) {
+					row.classList.add('recurring');
+				}
+				row.style.cursor = 'pointer';
+				row.dataset.taskId = String(t.id);
 				
 				const timeDiv = document.createElement('div');
 				timeDiv.className = 'calendar-task-time';
