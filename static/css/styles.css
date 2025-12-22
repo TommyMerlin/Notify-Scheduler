@@ -334,12 +334,13 @@ header p {
 
 .btn-ghost {
     background: rgba(15, 23, 42, 0.06);
-    color: #ffffff;
-    border: 1px solid rgba(15, 23, 42, 0.08);
+    color: var(--text-primary);
+    border: 1px solid rgba(15, 23, 42, 0.12);
 }
 
 .btn-ghost:hover {
     background: rgba(15, 23, 42, 0.12);
+    color: var(--text-primary);
 }
 
 .btn-sm {
@@ -1416,4 +1417,38 @@ header p {
         height: auto;
         min-height: auto;
     }
+}
+
+/* Multi-channel styles */
+.multi-channel-item {
+    margin-bottom: 15px;
+    padding: 15px;
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.multi-channel-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1.5px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    font-size: 15px;
+    transition: all 0.2s;
+}
+
+.multi-channel-config {
+    margin-top: 10px;
+}
+
+.channel-badge.status-sent {
+    background: rgba(39, 174, 96, 0.15);
+    color: #27ae60;
+    border: 1px solid rgba(39, 174, 96, 0.3);
+}
+
+.channel-badge.status-failed {
+    background: rgba(231, 76, 60, 0.15);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
 }

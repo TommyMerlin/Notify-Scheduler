@@ -211,6 +211,7 @@ function initSSE() {
 function initAppEvents() {
     document.getElementById('taskForm').addEventListener('submit', submitTaskForm);
     document.getElementById('channel').addEventListener('change', onChannelChange);
+    document.getElementById('enableMultiChannel').addEventListener('change', onMultiChannelToggle);
     
     const statusFilter = document.getElementById('statusFilter');
     if (statusFilter) {
@@ -907,7 +908,37 @@ function createTaskElement(task) {
 
     const expiredBadgeHTML = isExpired ? `<span class="status-badge status-expired">已过期</span>` : '';
 
-    const channelText = channels.find(c => c.value === task.channel)?.label || task.channel;
+    // 多渠道支持：显示渠道列表
+    const isMultiChannel = task.channels && task.channels.length > 0;
+    let channelBadges = '';
+    
+    if (isMultiChannel) {
+        // 多渠道模式
+        task.channels.forEach(ch => {
+            const channelLabel = channels.find(c => c.value === ch)?.label || ch;
+            let badgeClass = 'channel-badge';
+            let icon = '';
+            
+            // 如果有发送结果，显示状态
+            if (task.send_results && task.send_results[ch]) {
+                const result = task.send_results[ch];
+                if (result.status === 'sent') {
+                    icon = '✓ ';
+                    badgeClass += ' status-sent';
+                } else if (result.status === 'failed') {
+                    icon = '✗ ';
+                    badgeClass += ' status-failed';
+                }
+            }
+            
+            channelBadges += `<span class="${badgeClass}" title="${icon ? (icon === '✓ ' ? '发送成功' : '发送失败') : ''}">${icon}${channelLabel}</span>`;
+        });
+    } else {
+        // 单渠道模式
+        const channelText = channels.find(c => c.value === task.channel)?.label || task.channel;
+        channelBadges = `<span class="channel-badge">${channelText}</span>`;
+    }
+
     const scheduleLabel = task.is_recurring ? '📅 下一次执行时间' : '📅 计划时间';
 
     // 定义删除按钮
@@ -919,10 +950,11 @@ function createTaskElement(task) {
                 <div class="task-title">
                     ${escapeHtml(task.title)}
                     ${task.is_recurring ? `<span class="recurring-badge"></span>` : ''}
+                    ${isMultiChannel ? `<span class="status-badge" style="background: #667eea; color: white;">多渠道</span>` : ''}
                 </div>
                 ${expiredBadgeHTML}
                 <span class="status-badge ${statusClass}">${statusText}</span>
-                <span class="channel-badge">${channelText}</span>
+                ${channelBadges}
             </div>
         </div>
         <div class="task-content">${escapeHtml(task.content)}</div>
@@ -959,18 +991,7 @@ async function submitTaskForm(e) {
     e.preventDefault();
 
     const formData = new FormData(e.target);
-    const channel = formData.get('channel');
-    const channelSelect = document.getElementById('channel');
-    const selectedOption = channelSelect.options[channelSelect.selectedIndex];
-    const configFields = JSON.parse(selectedOption.dataset.fields || '[]');
-
-    // 构建配置对象
-    const channelConfig = {};
-    configFields.forEach(field => {
-        const value = document.getElementById(`config_${field}`).value;
-        channelConfig[field] = value;
-    });
-
+    const isMultiChannel = document.getElementById('enableMultiChannel').checked;
     const isRecurring = formData.get('isRecurring') === 'on';
 
     // 处理并兼容转换 cron 表达式（只在重复任务时）
@@ -980,21 +1001,80 @@ async function submitTaskForm(e) {
         cronForBackend = rawCron ? convertCronExpressionForBackend(rawCron) : null;
     }
 
-    // 构建任务数据
     const scheduledTimeValue = formData.get('scheduledTime');
     const taskData = {
         title: formData.get('title'),
         content: formData.get('content'),
-        channel: channel,
         // 重复任务不提交 scheduled_time，由后端根据 cron_expression 计算
-        // 如果有秒(长度19)则直接使用，否则(长度16)补:00
         scheduled_time: isRecurring ? undefined : (scheduledTimeValue ? (scheduledTimeValue.length === 16 ? `${scheduledTimeValue}:00` : scheduledTimeValue) : null),
-        channel_config: channelConfig,
         is_recurring: isRecurring,
         cron_expression: isRecurring ? cronForBackend : null
     };
 
-    // 移除 undefined 字段，避免后端 required_fields 判断误差
+    if (isMultiChannel) {
+        // 多渠道模式
+        const channels = [];
+        const channelsConfig = {};
+        
+        const channelItems = document.querySelectorAll('.multi-channel-item');
+        if (channelItems.length === 0) {
+            showNotification('请至少添加一个通知渠道', 'error');
+            return;
+        }
+        
+        for (const item of channelItems) {
+            const select = item.querySelector('.multi-channel-select');
+            const channelValue = select.value;
+            
+            if (!channelValue) {
+                showNotification('请选择所有渠道类型', 'error');
+                return;
+            }
+            
+            if (channels.includes(channelValue)) {
+                showNotification(`渠道 ${channelValue} 重复，请移除重复项`, 'error');
+                return;
+            }
+            
+            channels.push(channelValue);
+            
+            // 收集该渠道的配置
+            const config = {};
+            const configInputs = item.querySelectorAll(`input[data-channel-id="${item.id}"]`);
+            configInputs.forEach(input => {
+                const field = input.dataset.field;
+                config[field] = input.value;
+            });
+            
+            channelsConfig[channelValue] = config;
+        }
+        
+        taskData.channels = channels;
+        taskData.channels_config = channelsConfig;
+    } else {
+        // 单渠道模式
+        const channel = formData.get('channel');
+        if (!channel) {
+            showNotification('请选择通知渠道', 'error');
+            return;
+        }
+        
+        const channelSelect = document.getElementById('channel');
+        const selectedOption = channelSelect.options[channelSelect.selectedIndex];
+        const configFields = JSON.parse(selectedOption.dataset.fields || '[]');
+
+        // 构建配置对象
+        const channelConfig = {};
+        configFields.forEach(field => {
+            const value = document.getElementById(`config_${field}`).value;
+            channelConfig[field] = value;
+        });
+        
+        taskData.channel = channel;
+        taskData.channel_config = channelConfig;
+    }
+
+    // 移除 undefined 字段
     Object.keys(taskData).forEach(k => taskData[k] === undefined && delete taskData[k]);
 
     try {
@@ -1015,7 +1095,12 @@ async function submitTaskForm(e) {
             setDefaultTime();
             document.getElementById('configFields').style.display = 'none';
             document.getElementById('cronGroup').style.display = 'none';
-            // 重置“重复任务”禁用态
+            
+            // 重置多渠道状态
+            document.getElementById('enableMultiChannel').checked = false;
+            onMultiChannelToggle();
+            
+            // 重置"重复任务"禁用态
             const scheduledTimeInput = document.getElementById('scheduledTime');
             if (scheduledTimeInput) {
                 scheduledTimeInput.disabled = false;
@@ -1035,6 +1120,7 @@ async function submitTaskForm(e) {
         showNotification('创建失败: ' + error.message, 'error');
     }
 }
+
 
 // 自定义二次确认弹窗
 function showConfirmDialog({
@@ -1190,6 +1276,307 @@ async function deleteTask(taskId) {
         }
     } catch (error) {
         showNotification('删除失败: ' + error.message, 'error');
+    }
+}
+
+// 编辑任务
+async function editTask(taskId) {
+    try {
+        // 先获取任务详细信息
+        const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            showNotification('获取任务失败: ' + error.error, 'error');
+            return;
+        }
+
+        const task = await response.json();
+
+        // 显示编辑模态框
+        showEditTaskModal(task);
+
+    } catch (error) {
+        showNotification('获取任务失败: ' + error.message, 'error');
+    }
+}
+
+// 对外暴露的编辑任务函数（供日历视图调用）
+window.openEditTaskModal = function(taskId) {
+    editTask(taskId);
+};
+
+// 显示编辑任务模态框
+function showEditTaskModal(task) {
+    const modal = document.getElementById('editTaskModal');
+    const modalContent = modal.querySelector('.modal-content');
+
+    // 重置表单
+    document.getElementById('editTaskForm').reset();
+
+    // 填充表单数据
+    document.getElementById('editTaskId').value = task.id;
+    document.getElementById('editTitle').value = task.title;
+    document.getElementById('editContent').value = task.content;
+
+    // 处理多渠道任务的显示
+    const isMultiChannel = task.channels && task.channels.length > 0;
+    
+    if (isMultiChannel) {
+        // 多渠道任务：显示所有渠道信息，但不允许编辑
+        const channelSelect = document.getElementById('editChannel');
+        channelSelect.innerHTML = '<option value="" selected>多渠道任务（不可编辑）</option>';
+        channelSelect.disabled = true;
+        
+        const configFieldsDiv = document.getElementById('editConfigFields');
+        configFieldsDiv.innerHTML = `
+            <div class="info-hint">
+                ℹ️ 此任务使用多渠道推送，暂不支持在编辑界面修改渠道配置。
+                <br>渠道列表: ${task.channels.join(', ')}
+            </div>
+        `;
+        configFieldsDiv.style.display = 'block';
+    } else {
+        // 单渠道任务：正常编辑
+        const channelSelect = document.getElementById('editChannel');
+        channelSelect.disabled = false;
+        const channelOption = channels.find(c => c.value === task.channel);
+        if (channelOption) {
+            channelSelect.innerHTML = `<option value="${task.channel}" selected>${channelOption.label}</option>`;
+        }
+        
+        // 填充渠道配置字段
+        fillEditConfigFields(task.channel, task.channel_config);
+    }
+
+    // 设置时间
+    const scheduledTime = new Date(task.scheduled_time);
+    const localTime = new Date(scheduledTime.getTime() - scheduledTime.getTimezoneOffset() * 60000);
+    document.getElementById('editScheduledTime').value = localTime.toISOString().slice(0, 16);
+
+    // 设置重复任务信息
+    const isRecurringCheckbox = document.getElementById('editIsRecurring');
+    isRecurringCheckbox.checked = task.is_recurring;
+
+    if (task.is_recurring) {
+        document.getElementById('editCronGroup').style.display = 'block';
+        document.getElementById('editCronExpression').value = task.cron_expression || '';
+    } else {
+        document.getElementById('editCronGroup').style.display = 'none';
+    }
+
+    // 显示模态框（带动画效果）
+    modal.style.display = 'block';
+    setTimeout(() => {
+        modalContent.style.transform = 'scale(1)';
+        modalContent.style.opacity = '1';
+    }, 10);
+
+    // 绑定表单提交事件
+    const form = document.getElementById('editTaskForm');
+    form.removeEventListener('submit', handleEditTaskSubmit); // 移除旧的监听器
+    form.addEventListener('submit', handleEditTaskSubmit);
+
+    // 聚焦到第一个输入框
+    setTimeout(() => {
+        document.getElementById('editTitle').focus();
+    }, 300);
+}
+
+// 填充编辑表单的配置字段
+function fillEditConfigFields(channelType, channelConfig) {
+    const channel = channels.find(c => c.value === channelType);
+    if (!channel) return;
+
+    let configFields = [];
+    try {
+        if (typeof channel.config_fields === 'string') {
+            configFields = JSON.parse(channel.config_fields || '[]');
+        } else if (Array.isArray(channel.config_fields)) {
+            configFields = channel.config_fields;
+        } else {
+            configFields = [];
+        }
+    } catch (err) {
+        console.error('解析 channel.config_fields 出错:', err);
+        configFields = [];
+    }
+
+    const configFieldsDiv = document.getElementById('editConfigFields');
+
+    let existingConfig = {};
+    try {
+        existingConfig = channelConfig || {};
+        if (typeof existingConfig !== 'object') {
+            existingConfig = JSON.parse(existingConfig || '{}');
+        }
+    } catch (error) {
+        console.error('Error processing channelConfig:', error);
+        existingConfig = {};
+    }
+
+    configFieldsDiv.innerHTML = `
+        <div class="info-hint">
+            ℹ️ 当前渠道配置已保存，可在此修改
+        </div>
+    `;
+
+    configFields.forEach(field => {
+        const formGroup = document.createElement('div');
+        formGroup.className = 'form-group';
+
+        const label = document.createElement('label');
+        label.textContent = getFieldLabel(field);
+        formGroup.appendChild(label);
+
+        const input = document.createElement('input');
+        input.type = field.includes('token') || field.includes('secret') ? 'password' : 'text';
+        input.id = `editConfig_${field}`;
+        input.name = field;
+        input.placeholder = `请输入${getFieldLabel(field)}`;
+        input.value = existingConfig[field] || '';
+        input.required = true;
+        formGroup.appendChild(input);
+
+        configFieldsDiv.appendChild(formGroup);
+    });
+
+    configFieldsDiv.style.display = 'block';
+}
+
+// 关闭编辑任务模态框
+function closeEditTaskModal() {
+    const modal = document.getElementById('editTaskModal');
+    const modalContent = modal.querySelector('.modal-content');
+
+    // 添加关闭动画
+    modalContent.style.transform = 'scale(0.9)';
+    modalContent.style.opacity = '0';
+
+    setTimeout(() => {
+        modal.style.display = 'none';
+        document.getElementById('editTaskForm').reset();
+        document.getElementById('editTaskForm').removeEventListener('submit', handleEditTaskSubmit);
+        modalContent.style.transform = 'scale(0.9)';
+        modalContent.style.opacity = '0';
+    }, 300);
+}
+
+// 处理编辑任务表单提交
+async function handleEditTaskSubmit(e) {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const taskId = formData.get('taskId');
+    const channelSelect = document.getElementById('editChannel');
+    
+    // 检查是否是多渠道任务（不可编辑渠道）
+    if (channelSelect.disabled) {
+        // 多渠道任务：只更新标题、内容和时间
+        const scheduledTimeValue = formData.get('scheduledTime');
+        const taskData = {
+            title: formData.get('title'),
+            content: formData.get('content'),
+            scheduled_time: scheduledTimeValue ? `${scheduledTimeValue}:00` : null
+        };
+
+        try {
+            const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify(taskData)
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                showNotification('任务更新成功！', 'success');
+                closeEditTaskModal();
+                loadTasks();
+                
+                if (typeof window.loadCalendar === 'function') {
+                    delete window.__TASKS_CACHE;
+                    window.loadCalendar();
+                }
+            } else {
+                showNotification('更新失败: ' + result.error, 'error');
+            }
+        } catch (error) {
+            showNotification('更新失败: ' + error.message, 'error');
+        }
+        return;
+    }
+
+    // 单渠道任务：正常更新
+    const channelType = channelSelect.options[0].value;
+    const channel = channels.find(c => c.value === channelType);
+    
+    let configFields = [];
+    try {
+        if (channel) {
+            if (typeof channel.config_fields === 'string') {
+                configFields = JSON.parse(channel.config_fields || '[]');
+            } else if (Array.isArray(channel.config_fields)) {
+                configFields = channel.config_fields;
+            } else {
+                configFields = [];
+            }
+        }
+    } catch (err) {
+        console.error('解析 channel.config_fields 出错:', err);
+        configFields = [];
+    }
+
+    // 构建配置对象
+    const channelConfig = {};
+    configFields.forEach(field => {
+        const value = document.getElementById(`editConfig_${field}`).value;
+        channelConfig[field] = value;
+    });
+
+    // 构建任务数据
+    const scheduledTimeValue = formData.get('scheduledTime');
+    const taskData = {
+        title: formData.get('title'),
+        content: formData.get('content'),
+        channel: channelType,
+        scheduled_time: scheduledTimeValue ? `${scheduledTimeValue}:00` : null,
+        channel_config: channelConfig
+    };
+
+    try {
+        const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(taskData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showNotification('任务更新成功！', 'success');
+            closeEditTaskModal();
+            loadTasks();
+            
+            if (typeof window.loadCalendar === 'function') {
+                delete window.__TASKS_CACHE;
+                window.loadCalendar();
+            }
+        } else {
+            showNotification('更新失败: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showNotification('更新失败: ' + error.message, 'error');
     }
 }
 
@@ -1730,4 +2117,259 @@ async function syncExternalCalendar(id) {
     } catch (e) {
         showNotification(e.message, 'error');
     }
+}
+
+// ==================== 多渠道功能 ====================
+
+let multiChannelCounter = 0;
+
+// 多渠道开关切换
+function onMultiChannelToggle() {
+    const enableMultiChannel = document.getElementById('enableMultiChannel').checked;
+    const singleChannelSection = document.getElementById('singleChannelSection');
+    const multiChannelSection = document.getElementById('multiChannelSection');
+    const configFields = document.getElementById('configFields');
+    const multiConfigFields = document.getElementById('multiConfigFields');
+    const testSection = document.getElementById('testNotificationSection');
+    
+    if (enableMultiChannel) {
+        // 切换到多渠道模式
+        singleChannelSection.style.display = 'none';
+        multiChannelSection.style.display = 'block';
+        configFields.style.display = 'none';
+        multiConfigFields.style.display = 'block';
+        testSection.style.display = 'none'; // 多渠道模式暂不支持测试
+        
+        // 清空单渠道选择并移除required
+        document.getElementById('channel').value = '';
+        document.getElementById('channel').removeAttribute('required');
+        
+        // 初始化第一个渠道选择
+        if (document.getElementById('multiChannelList').children.length === 0) {
+            addChannelSelection();
+        }
+    } else {
+        // 切换回单渠道模式
+        singleChannelSection.style.display = 'block';
+        multiChannelSection.style.display = 'none';
+        configFields.style.display = 'none';
+        multiConfigFields.style.display = 'none';
+        testSection.style.display = 'none';
+        
+        // 恢复单渠道required
+        document.getElementById('channel').setAttribute('required', 'required');
+        
+        // 清空多渠道列表
+        document.getElementById('multiChannelList').innerHTML = '';
+        multiChannelCounter = 0;
+    }
+}
+
+// 添加一个渠道选择
+function addChannelSelection() {
+    const multiChannelList = document.getElementById('multiChannelList');
+    const channelId = `channel_${multiChannelCounter++}`;
+    
+    const channelDiv = document.createElement('div');
+    channelDiv.className = 'multi-channel-item';
+    channelDiv.id = channelId;
+    channelDiv.style.marginBottom = '15px';
+    channelDiv.style.padding = '15px';
+    channelDiv.style.border = '1px solid var(--card-border)';
+    channelDiv.style.borderRadius = 'var(--radius-sm)';
+    channelDiv.style.background = 'rgba(255, 255, 255, 0.5)';
+    
+    // 渠道选择下拉
+    const selectDiv = document.createElement('div');
+    selectDiv.style.display = 'flex';
+    selectDiv.style.gap = '10px';
+    selectDiv.style.marginBottom = '10px';
+    
+    const select = document.createElement('select');
+    select.className = 'multi-channel-select';
+    select.dataset.channelId = channelId;
+    select.required = true;
+    select.style.flex = '1';
+    
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = '请选择渠道';
+    select.appendChild(defaultOption);
+    
+    // 填充渠道选项
+    channels.forEach(channel => {
+        const option = document.createElement('option');
+        option.value = channel.value;
+        option.textContent = channel.label;
+        option.dataset.fields = JSON.stringify(channel.config_fields);
+        select.appendChild(option);
+    });
+    
+    // 监听渠道变更
+    select.addEventListener('change', function() {
+        onMultiChannelSelectChange(channelId);
+    });
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-sm btn-danger';
+    removeBtn.textContent = '移除';
+    removeBtn.onclick = function() {
+        removeChannelSelection(channelId);
+    };
+    
+    selectDiv.appendChild(select);
+    selectDiv.appendChild(removeBtn);
+    
+    // 配置字段容器
+    const configDiv = document.createElement('div');
+    configDiv.className = 'multi-channel-config';
+    configDiv.id = `${channelId}_config`;
+    configDiv.style.display = 'none';
+    
+    channelDiv.appendChild(selectDiv);
+    channelDiv.appendChild(configDiv);
+    multiChannelList.appendChild(channelDiv);
+}
+
+// 移除渠道选择
+function removeChannelSelection(channelId) {
+    const channelDiv = document.getElementById(channelId);
+    if (channelDiv) {
+        channelDiv.remove();
+    }
+    
+    // 如果没有渠道了，至少保留一个
+    const multiChannelList = document.getElementById('multiChannelList');
+    if (multiChannelList.children.length === 0) {
+        addChannelSelection();
+    }
+}
+
+// 多渠道选择变更
+function onMultiChannelSelectChange(channelId) {
+    const select = document.querySelector(`[data-channel-id="${channelId}"]`);
+    const configDiv = document.getElementById(`${channelId}_config`);
+    
+    if (!select || !configDiv) return;
+    
+    const selectedOption = select.options[select.selectedIndex];
+    configDiv.innerHTML = '';
+    
+    if (!selectedOption.value) {
+        configDiv.style.display = 'none';
+        return;
+    }
+    
+    const fields = JSON.parse(selectedOption.dataset.fields || '[]');
+    if (fields.length === 0) {
+        configDiv.style.display = 'none';
+        return;
+    }
+    
+    configDiv.style.display = 'block';
+    
+    const channelType = selectedOption.value;
+    
+    // 检查是否有该类型的已保存渠道配置
+    const savedChannels = userChannels.filter(uc => uc.channel_type === channelType);
+    
+    let savedSelect = null;
+    let defaultOrSingleChannel = null;
+    
+    if (savedChannels.length > 0) {
+        // 显示已保存渠道选择器
+        const savedChannelGroup = document.createElement('div');
+        savedChannelGroup.className = 'form-group';
+        savedChannelGroup.style.marginBottom = '10px';
+        
+        const savedLabel = document.createElement('label');
+        savedLabel.textContent = '使用已保存的渠道配置';
+        savedChannelGroup.appendChild(savedLabel);
+        
+        savedSelect = document.createElement('select');
+        savedSelect.id = `${channelId}_savedChannel`;
+        savedSelect.style.width = '100%';
+        
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = '手动输入（新配置）';
+        savedSelect.appendChild(emptyOption);
+        
+        savedChannels.forEach(sc => {
+            const option = document.createElement('option');
+            option.value = sc.id;
+            option.textContent = `${sc.channel_name}${sc.is_default ? ' (默认)' : ''}`;
+            savedSelect.appendChild(option);
+        });
+        
+        // 监听已保存渠道选择
+        savedSelect.addEventListener('change', function() {
+            populateMultiChannelConfig(channelId, this.value, fields);
+        });
+        
+        savedChannelGroup.appendChild(savedSelect);
+        configDiv.appendChild(savedChannelGroup);
+        
+        // 判断是否有默认渠道或唯一渠道
+        const defaultChannel = savedChannels.find(sc => sc.is_default);
+        if (defaultChannel) {
+            defaultOrSingleChannel = defaultChannel;
+        } else if (savedChannels.length === 1) {
+            defaultOrSingleChannel = savedChannels[0];
+        }
+    }
+    
+    // 先生成配置字段（必须在填充值之前创建）
+    fields.forEach(field => {
+        const fieldGroup = document.createElement('div');
+        fieldGroup.className = 'form-group';
+        fieldGroup.style.marginBottom = '10px';
+        
+        const label = document.createElement('label');
+        label.textContent = getFieldLabel(field);
+        label.htmlFor = `${channelId}_${field}`;
+        
+        const input = document.createElement('input');
+        input.type = field.includes('password') || field.includes('secret') ? 'password' : 'text';
+        input.id = `${channelId}_${field}`;
+        input.name = `${channelId}_${field}`;
+        input.placeholder = `请输入${getFieldLabel(field)}`;
+        input.required = true;
+        input.dataset.field = field;
+        input.dataset.channelId = channelId;
+        
+        fieldGroup.appendChild(label);
+        fieldGroup.appendChild(input);
+        configDiv.appendChild(fieldGroup);
+    });
+    
+    // 配置字段创建完成后，再填充默认值
+    if (defaultOrSingleChannel && savedSelect) {
+        savedSelect.value = defaultOrSingleChannel.id;
+        populateMultiChannelConfig(channelId, defaultOrSingleChannel.id, fields);
+    }
+}
+
+// 填充多渠道配置（从已保存的渠道）
+function populateMultiChannelConfig(channelId, savedChannelId, fields) {
+    if (!savedChannelId) {
+        // 清空所有字段
+        fields.forEach(field => {
+            const input = document.getElementById(`${channelId}_${field}`);
+            if (input) input.value = '';
+        });
+        return;
+    }
+    
+    const savedChannel = userChannels.find(uc => uc.id == savedChannelId);
+    if (!savedChannel) return;
+    
+    const config = savedChannel.channel_config || {};
+    fields.forEach(field => {
+        const input = document.getElementById(`${channelId}_${field}`);
+        if (input && config[field]) {
+            input.value = config[field];
+        }
+    });
 }
