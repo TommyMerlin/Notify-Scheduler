@@ -1,11 +1,12 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
 from datetime import datetime
 from models import init_db, get_db, NotifyTask, NotifyChannel, NotifyStatus, User, UserChannel
-from scheduler import scheduler
+from scheduler import scheduler, get_cron_trigger, event_manager
 from auth import login_required, admin_required, user_login, user_register, update_user_profile
 import json
 import os
+import jwt
 
 app = Flask(__name__, static_folder='static')
 CORS(app)  # 启用跨域支持
@@ -153,8 +154,7 @@ def create_task():
                 return jsonify({'error': '重复任务必须提供 cron_expression'}), 400
             # 由 cron 计算下一次运行时间（用于列表展示与排序）
             try:
-                from apscheduler.triggers.cron import CronTrigger
-                trigger = CronTrigger.from_crontab(cron_expression)
+                trigger = get_cron_trigger(cron_expression)
                 next_run = trigger.get_next_fire_time(None, datetime.now())
                 if not next_run:
                     return jsonify({'error': '无法根据 cron_expression 计算下一次执行时间'}), 400
@@ -356,8 +356,7 @@ def update_task(task_id):
                         # 恢复时重新计算下一次执行时间
                         if task.is_recurring and task.cron_expression:
                             try:
-                                from apscheduler.triggers.cron import CronTrigger
-                                trigger = CronTrigger.from_crontab(task.cron_expression)
+                                trigger = get_cron_trigger(task.cron_expression)
                                 next_run = trigger.get_next_fire_time(None, datetime.now())
                                 if next_run:
                                     task.scheduled_time = next_run
@@ -391,8 +390,7 @@ def update_task(task_id):
             # 关键：如果是重复任务，根据 cron 表达式重新计算下一次执行时间
             if task.is_recurring and task.cron_expression:
                 try:
-                    from apscheduler.triggers.cron import CronTrigger
-                    trigger = CronTrigger.from_crontab(task.cron_expression)
+                    trigger = get_cron_trigger(task.cron_expression)
                     # 以当前时间为基准，计算下一次执行时间
                     next_run = trigger.get_next_fire_time(None, datetime.now())
                     if next_run:
@@ -696,6 +694,34 @@ def health_check():
         'status': 'ok',
         'scheduler_running': scheduler.scheduler.running
     })
+
+
+@app.route('/api/events')
+def sse_events():
+    """服务器发送事件 (SSE) 端点"""
+    token = request.args.get('token')
+    if not token:
+        return jsonify({'error': 'Missing token'}), 401
+    
+    try:
+        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+        # 尝试获取 user_id，兼容常见的 payload key
+        user_id = payload.get('user_id') or payload.get('id') or payload.get('sub')
+        if not user_id:
+             return jsonify({'error': 'Invalid token payload'}), 401
+    except Exception:
+        return jsonify({'error': 'Invalid token'}), 401
+
+    def stream():
+        messages = event_manager.listen(user_id)
+        try:
+            while True:
+                msg = messages.get()
+                yield f"data: {json.dumps(msg, ensure_ascii=False)}\n\n"
+        except GeneratorExit:
+            pass
+
+    return Response(stream(), mimetype='text/event-stream')
 
 
 if __name__ == '__main__':

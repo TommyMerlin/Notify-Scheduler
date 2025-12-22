@@ -141,7 +141,7 @@
 
                         <div class="form-group">
                             <label for="scheduledTime">计划发送时间 *</label>
-                            <input type="datetime-local" id="scheduledTime" name="scheduledTime" required>
+                            <input type="datetime-local" id="scheduledTime" name="scheduledTime" required step="1">
                         </div>
 
                         <div class="form-group">
@@ -153,9 +153,9 @@
 
                         <div class="form-group" id="cronGroup" style="display: none;">
                             <label for="cronExpression">Cron 表达式</label>
-                            <input type="text" id="cronExpression" name="cronExpression" placeholder="如: 0 9 * * * (每天9点)">
+                            <input type="text" id="cronExpression" name="cronExpression" placeholder="如: 0 9 * * * (每天9点) 或 0/30 * * * * * (每30秒)">
                             <small style="color: var(--text-muted); display: block; margin-top: 5px;">
-                                示例: 0 9 * * * (每天9点) | 0 */2 * * * (每2小时) | 0 9 * * 1 (每周一9点)
+                                示例: 0 9 * * * (每天9点) | 0 */2 * * * (每2小时) | */30 * * * * * (每30秒)
                             </small>
                         </div>
 
@@ -319,7 +319,7 @@
 
                 <div class="form-group">
                     <label for="editScheduledTime">计划发送时间 *</label>
-                    <input type="datetime-local" id="editScheduledTime" name="scheduledTime" required>
+                    <input type="datetime-local" id="editScheduledTime" name="scheduledTime" required step="1">
                 </div>
 
                 <div class="form-group">

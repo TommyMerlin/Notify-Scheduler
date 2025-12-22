@@ -2,6 +2,7 @@ const API_BASE = '/api';
 let channels = [];
 let currentUser = null;
 let userChannels = [];
+let eventSource = null;
 
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
@@ -54,6 +55,7 @@ function showMainApp() {
     loadTasks();
     initAppEvents();
     setDefaultTime();
+    initSSE();
 
     // 尝试加载日历（如果存在日历脚本且在主界面显示后）
     if (typeof window.loadCalendar === 'function') {
@@ -154,7 +156,51 @@ async function handleRegister(e) {
 function logout() {
     localStorage.removeItem('token');
     currentUser = null;
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
     checkAuthStatus();
+}
+
+// 初始化 SSE
+function initSSE() {
+    if (eventSource) {
+        eventSource.close();
+    }
+    
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    // 使用 query param 传递 token
+    eventSource = new EventSource(`${API_BASE}/events?token=${token}`);
+    
+    eventSource.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'task_executed') {
+                const type = data.status === 'sent' ? 'success' : 'error';
+                const msgPrefix = data.status === 'sent' ? '✅' : '❌';
+                showNotification(`${msgPrefix} 任务 "${data.title}" 执行完成: ${data.message}`, type);
+                
+                // 刷新列表
+                loadTasks();
+                
+                // 刷新日历
+                if (typeof window.loadCalendar === 'function') {
+                     delete window.__TASKS_CACHE;
+                     window.loadCalendar();
+                }
+            }
+        } catch (e) {
+            console.error('SSE parse error', e);
+        }
+    };
+    
+    eventSource.onerror = function(err) {
+        // 连接错误时，EventSource 会自动重连，这里仅记录
+        console.log('SSE connection error/closed');
+    };
 }
 
 // 初始化应用事件
@@ -924,7 +970,8 @@ async function submitTaskForm(e) {
         content: formData.get('content'),
         channel: channel,
         // 重复任务不提交 scheduled_time，由后端根据 cron_expression 计算
-        scheduled_time: isRecurring ? undefined : (scheduledTimeValue ? `${scheduledTimeValue}:00` : null),
+        // 如果有秒(长度19)则直接使用，否则(长度16)补:00
+        scheduled_time: isRecurring ? undefined : (scheduledTimeValue ? (scheduledTimeValue.length === 16 ? `${scheduledTimeValue}:00` : scheduledTimeValue) : null),
         channel_config: channelConfig,
         is_recurring: isRecurring,
         cron_expression: isRecurring ? cronForBackend : null
@@ -1139,13 +1186,15 @@ async function toggleTaskPause(taskId, action) {
 function setDefaultTime() {
     const now = new Date();
     now.setHours(now.getHours() + 1);
+    now.setSeconds(0);
+    now.setMilliseconds(0);
     document.getElementById('scheduledTime').value = toLocalInputValue(now);
 }
 
 // 将 Date 转为 datetime-local 可用的本地时间字符串
 function toLocalInputValue(date) {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return local.toISOString().slice(0, 16);
+    return local.toISOString().slice(0, 19);
 }
 
 // 显示通知
@@ -1169,7 +1218,8 @@ function formatDateTime(dateString) {
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        second: '2-digit'
     });
 }
 
@@ -1516,7 +1566,7 @@ function showEditTaskModal(task) {
     const scheduledTime = new Date(task.scheduled_time);
     // 转换为本地时间并格式化
     const localTime = new Date(scheduledTime.getTime() - scheduledTime.getTimezoneOffset() * 60000);
-    document.getElementById('editScheduledTime').value = localTime.toISOString().slice(0, 16);
+    document.getElementById('editScheduledTime').value = localTime.toISOString().slice(0, 19);
 
     // 设置重复任务信息
     const isRecurringCheckbox = document.getElementById('editIsRecurring');
@@ -1675,7 +1725,7 @@ async function handleEditTaskSubmit(e) {
         title: formData.get('title'),
         content: formData.get('content'),
         channel: channelType,
-        scheduled_time: scheduledTimeValue ? `${scheduledTimeValue}:00` : null,
+        scheduled_time: scheduledTimeValue ? (scheduledTimeValue.length === 16 ? `${scheduledTimeValue}:00` : scheduledTimeValue) : null,
         channel_config: channelConfig
         // 注意：不包含 is_recurring 和 cron_expression，因为后端不允许修改这些字段
     };

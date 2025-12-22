@@ -5,9 +5,47 @@ from apscheduler.triggers.cron import CronTrigger
 from models import NotifyTask, NotifyStatus, get_db
 from notifier import NotificationSender, parse_config
 import logging
+import queue
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class EventManager:
+    def __init__(self):
+        # listeners: list of (queue, user_id)
+        self.listeners = []
+
+    def listen(self, user_id):
+        q = queue.Queue(maxsize=10)
+        self.listeners.append((q, user_id))
+        return q
+
+    def announce(self, user_id, msg):
+        for i in range(len(self.listeners) - 1, -1, -1):
+            q, uid = self.listeners[i]
+            if uid == user_id:
+                try:
+                    q.put_nowait(msg)
+                except queue.Full:
+                    del self.listeners[i]
+
+event_manager = EventManager()
+
+
+def get_cron_trigger(expression):
+    """根据 cron 表达式获取触发器，支持 5 位 (分时日月周) 和 6 位 (秒分时日月周)"""
+    values = expression.strip().split()
+    if len(values) == 6:
+        return CronTrigger(
+            second=values[0],
+            minute=values[1],
+            hour=values[2],
+            day=values[3],
+            month=values[4],
+            day_of_week=values[5]
+        )
+    return CronTrigger.from_crontab(expression)
 
 
 class NotifyScheduler:
@@ -27,23 +65,36 @@ class NotifyScheduler:
         """
         if task.is_recurring and task.cron_expression:
             # 重复任务，使用 cron 表达式
-            trigger = CronTrigger.from_crontab(task.cron_expression)
-            job_id = f"recurring_task_{task.id}"
+            try:
+                trigger = get_cron_trigger(task.cron_expression)
+                job_id = f"recurring_task_{task.id}"
+                
+                self.scheduler.add_job(
+                    func=self._execute_task,
+                    trigger=trigger,
+                    args=[task.id],
+                    id=job_id,
+                    replace_existing=True,
+                    misfire_grace_time=60  # 错过时间窗口60秒内仍执行
+                )
+                logger.info(f"任务 {task.id} 已添加到调度器，计划执行时间: {task.scheduled_time}")
+            except Exception as e:
+                logger.error(f"添加任务 {task.id} 失败，Cron 表达式无效: {e}")
         else:
             # 一次性任务，使用指定时间
             trigger = DateTrigger(run_date=task.scheduled_time)
             job_id = f"task_{task.id}"
         
-        self.scheduler.add_job(
-            func=self._execute_task,
-            trigger=trigger,
-            args=[task.id],
-            id=job_id,
-            replace_existing=True,
-            misfire_grace_time=60  # 错过时间窗口60秒内仍执行
-        )
-        
-        logger.info(f"任务 {task.id} 已添加到调度器，计划执行时间: {task.scheduled_time}")
+            self.scheduler.add_job(
+                func=self._execute_task,
+                trigger=trigger,
+                args=[task.id],
+                id=job_id,
+                replace_existing=True,
+                misfire_grace_time=60  # 错过时间窗口60秒内仍执行
+            )
+            
+            logger.info(f"任务 {task.id} 已添加到调度器，计划执行时间: {task.scheduled_time}")
     
     def remove_task(self, task_id: int, is_recurring: bool = False):
         """
@@ -108,8 +159,7 @@ class NotifyScheduler:
                     # 关键：重复任务执行成功后，滚动更新下一次执行时间（用于列表展示）
                     if task.is_recurring and task.cron_expression:
                         try:
-                            from apscheduler.triggers.cron import CronTrigger
-                            trigger = CronTrigger.from_crontab(task.cron_expression)
+                            trigger = get_cron_trigger(task.cron_expression)
                             # 以"本次实际执行时间"为基准，计算下一次
                             base_time = datetime.now()
                             next_run = trigger.get_next_fire_time(None, base_time)
@@ -120,12 +170,30 @@ class NotifyScheduler:
                             logger.warning(f"任务 {task_id} 更新下一次执行时间失败: {str(e)}")
 
                     logger.info(f"任务 {task_id} 执行成功")
+                    
+                    # 通知前端
+                    event_manager.announce(task.user_id, {
+                        'type': 'task_executed',
+                        'task_id': task.id,
+                        'title': task.title,
+                        'status': 'sent',
+                        'message': '发送成功'
+                    })
 
                 except Exception as e:
                     # 更新任务状态为失败
                     task.status = NotifyStatus.FAILED
                     task.error_msg = str(e)
                     logger.error(f"任务 {task_id} 执行失败: {str(e)}")
+                    
+                    # 通知前端
+                    event_manager.announce(task.user_id, {
+                        'type': 'task_executed',
+                        'task_id': task.id,
+                        'title': task.title,
+                        'status': 'failed',
+                        'message': str(e)
+                    })
 
                 db.commit()
 
@@ -155,7 +223,7 @@ class NotifyScheduler:
                     # 如果是重复任务且计划时间已过，重新计算下一次执行时间
                     if task.is_recurring and task.cron_expression and task.scheduled_time < datetime.now():
                         try:
-                            trigger = CronTrigger.from_crontab(task.cron_expression)
+                            trigger = get_cron_trigger(task.cron_expression)
                             next_run = trigger.get_next_fire_time(None, datetime.now())
                             if next_run:
                                 task.scheduled_time = next_run
