@@ -191,6 +191,10 @@ function initSSE() {
                      delete window.__TASKS_CACHE;
                      window.loadCalendar();
                 }
+            } else if (data.type === 'calendar_synced') {
+                showNotification(`📅 ${data.message}`, 'success');
+                loadTasks();
+                loadExternalCalendars();
             }
         } catch (e) {
             console.error('SSE parse error', e);
@@ -242,6 +246,13 @@ function initAppEvents() {
             }
         }
     });
+    
+    // 绑定外部日历表单
+    const extCalForm = document.getElementById('externalCalendarForm');
+    if (extCalForm) {
+        extCalForm.addEventListener('submit', handleAddExternalCalendar);
+    }
+    
     // 渠道表单提交与类型变更监听（绑定一次）
     const channelForm = document.getElementById('channelForm');
     if (channelForm && !channelForm._bound) {
@@ -1545,268 +1556,178 @@ document.addEventListener('visibilitychange', function() {
 // 存储刷新间隔ID，便于管理
 window.taskRefreshInterval = setInterval(loadTasks, 30000);
 
-// 任务编辑相关函数
+// --- 日历同步功能 ---
 
-// 编辑任务
-async function editTask(taskId) {
+function openSyncModal() {
+    document.getElementById('syncModal').style.display = 'block';
+    // 加载订阅链接
+    fetchCalendarToken();
+    // 加载外部日历列表
+    loadExternalCalendars();
+    // 填充导入渠道选择
+    populateImportChannels();
+}
+
+function closeSyncModal() {
+    document.getElementById('syncModal').style.display = 'none';
+}
+
+function switchSyncTab(tab) {
+    const tabs = document.querySelectorAll('#syncModal .login-tab');
+    const contents = document.querySelectorAll('#syncModal .tab-content');
+    
+    tabs.forEach(t => t.classList.remove('active'));
+    contents.forEach(c => c.classList.remove('active'));
+    
+    if (tab === 'export') {
+        tabs[0].classList.add('active');
+        document.getElementById('syncExportTab').classList.add('active');
+    } else {
+        tabs[1].classList.add('active');
+        document.getElementById('syncImportTab').classList.add('active');
+    }
+}
+
+async function fetchCalendarToken(regenerate = false) {
     try {
-        // 先获取任务详细信息
-        const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
+        const method = regenerate ? 'POST' : 'GET';
+        const response = await fetch(`${API_BASE}/calendar/token`, {
+            method: method,
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
-
-        if (!response.ok) {
-            const error = await response.json();
-            showNotification('获取任务失败: ' + error.error, 'error');
-            return;
+        const data = await response.json();
+        if (data.feed_url) {
+            document.getElementById('calendarFeedUrl').value = data.feed_url;
+            if (regenerate) showNotification('订阅链接已更新', 'success');
         }
-
-        const task = await response.json();
-
-        // 调试输出
-        console.log('Task received from API:', {
-            id: task.id,
-            title: task.title,
-            channel: task.channel,
-            channel_config: task.channel_config,
-            channel_config_type: typeof task.channel_config
-        });
-
-        // 显示编辑模态框
-        showEditTaskModal(task);
-
-    } catch (error) {
-        showNotification('获取任务失败: ' + error.message, 'error');
+    } catch (e) {
+        console.error(e);
     }
 }
 
-// 对外暴露的编辑任务函数（供日历视图调用）
-window.openEditTaskModal = function(taskId) {
-    editTask(taskId);
-};
-
-// 显示编辑任务模态框
-function showEditTaskModal(task) {
-    // 添加加载动画
-    const modal = document.getElementById('editTaskModal');
-    const modalContent = modal.querySelector('.modal-content');
-
-    // 重置表单
-    document.getElementById('editTaskForm').reset();
-
-    // 填充表单数据
-    document.getElementById('editTaskId').value = task.id;
-    document.getElementById('editTitle').value = task.title;
-    document.getElementById('editContent').value = task.content;
-
-    // 设置渠道信息
-    const channelSelect = document.getElementById('editChannel');
-    const channelOption = channels.find(c => c.value === task.channel);
-    if (channelOption) {
-        channelSelect.innerHTML = `<option value="${task.channel}" selected>${channelOption.label}</option>`;
+function generateCalendarToken() {
+    if (confirm('重置链接后，旧的订阅链接将失效，确定要重置吗？')) {
+        fetchCalendarToken(true);
     }
-
-    // 设置时间
-    const scheduledTime = new Date(task.scheduled_time);
-    // 转换为本地时间并格式化
-    const localTime = new Date(scheduledTime.getTime() - scheduledTime.getTimezoneOffset() * 60000);
-    document.getElementById('editScheduledTime').value = localTime.toISOString().slice(0, 19);
-
-    // 设置重复任务信息
-    const isRecurringCheckbox = document.getElementById('editIsRecurring');
-    isRecurringCheckbox.checked = task.is_recurring;
-
-    if (task.is_recurring) {
-        document.getElementById('editCronGroup').style.display = 'block';
-        document.getElementById('editCronExpression').value = task.cron_expression;
-    }
-
-    // 填充渠道配置字段
-    fillEditConfigFields(task.channel, task.channel_config);
-
-    // 显示模态框（带动画效果）
-    modal.style.display = 'block';
-    setTimeout(() => {
-        modalContent.style.transform = 'scale(1)';
-        modalContent.style.opacity = '1';
-    }, 10);
-
-    // 绑定表单提交事件
-    document.getElementById('editTaskForm').addEventListener('submit', handleEditTaskSubmit);
-
-    // 聚焦到第一个输入框
-    setTimeout(() => {
-        document.getElementById('editTitle').focus();
-    }, 300);
 }
 
-// 填充编辑表单的配置字段
-function fillEditConfigFields(channelType, channelConfig) {
-    const channel = channels.find(c => c.value === channelType);
-    if (!channel) return;
+function copyFeedUrl() {
+    const input = document.getElementById('calendarFeedUrl');
+    input.select();
+    document.execCommand('copy');
+    showNotification('链接已复制到剪贴板', 'success');
+}
 
-    // channel.config_fields 可能是数组（来自 API 的原生 JSON）或字符串（已序列化的 JSON），
-    // 兼容两种情况以避免 JSON.parse 在接收到数组时抛出错误（数组会被 toString 成非 JSON 字符串）。
-    let configFields = [];
+function populateImportChannels() {
+    const select = document.getElementById('importChannelSelect');
+    // 保留第一个选项
+    select.innerHTML = '<option value="">不发送通知 (仅导入)</option>';
+    
+    userChannels.forEach(uc => {
+        const opt = document.createElement('option');
+        opt.value = uc.id;
+        opt.textContent = `${uc.channel_name} (${uc.channel_type})`;
+        select.appendChild(opt);
+    });
+}
+
+async function loadExternalCalendars() {
+    const list = document.getElementById('externalCalendarList');
+    list.innerHTML = '<div class="loading"><div class="spinner" style="width:20px;height:20px;"></div></div>';
+    
     try {
-        if (typeof channel.config_fields === 'string') {
-            configFields = JSON.parse(channel.config_fields || '[]');
-        } else if (Array.isArray(channel.config_fields)) {
-            configFields = channel.config_fields;
+        const response = await fetch(`${API_BASE}/calendar/external`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        const data = await response.json();
+        
+        list.innerHTML = '';
+        if (data.calendars && data.calendars.length > 0) {
+            data.calendars.forEach(cal => {
+                const div = document.createElement('div');
+                div.className = 'channel-item';
+                div.innerHTML = `
+                    <div class="channel-info">
+                        <div class="channel-name">${escapeHtml(cal.name)}</div>
+                        <div class="channel-type" style="font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">${escapeHtml(cal.url)}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
+                            上次同步: ${formatDateTime(cal.last_sync) || '从未'}
+                        </div>
+                    </div>
+                    <div class="channel-actions">
+                        <button class="btn btn-sm btn-info" onclick="syncExternalCalendar(${cal.id})">立即同步</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteExternalCalendar(${cal.id})">删除</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
         } else {
-            configFields = [];
+            list.innerHTML = '<div class="empty-state" style="padding: 20px;">暂无订阅的外部日历</div>';
         }
-    } catch (err) {
-        console.error('解析 channel.config_fields 出错，回退为空数组:', err, channel.config_fields);
-        configFields = [];
+    } catch (e) {
+        list.innerHTML = `<div class="error">加载失败: ${e.message}</div>`;
     }
-    const configFieldsDiv = document.getElementById('editConfigFields');
-
-    // 调试输出
-    console.log('fillEditConfigFields called with:', {
-        channelType,
-        channelConfigType: typeof channelConfig,
-        channelConfigValue: channelConfig
-    });
-
-    // 后端现在返回正确的JSON对象，所以直接使用
-    let existingConfig = {};
-    try {
-        existingConfig = channelConfig || {};
-        // 确保是对象
-        if (typeof existingConfig !== 'object') {
-            console.warn('channelConfig is not an object, trying to parse:', existingConfig);
-            existingConfig = JSON.parse(existingConfig || '{}');
-        }
-    } catch (error) {
-        console.error('Error processing channelConfig:', error);
-        existingConfig = {};
-    }
-
-    configFieldsDiv.innerHTML = `
-        <div class="info-hint">
-            ℹ️ 当前渠道配置已保存，可在此修改
-        </div>
-    `;
-
-    configFields.forEach(field => {
-        const formGroup = document.createElement('div');
-        formGroup.className = 'form-group';
-
-        const label = document.createElement('label');
-        label.textContent = getFieldLabel(field);
-        formGroup.appendChild(label);
-
-        const input = document.createElement('input');
-        input.type = field.includes('token') || field.includes('secret') ? 'password' : 'text';
-        input.id = `editConfig_${field}`;
-        input.name = field;
-        input.placeholder = `请输入${getFieldLabel(field)}`;
-        input.value = existingConfig[field] || '';
-        input.required = true;
-        formGroup.appendChild(input);
-
-        configFieldsDiv.appendChild(formGroup);
-    });
-
-    configFieldsDiv.style.display = 'block';
 }
 
-// 关闭编辑任务模态框
-function closeEditTaskModal() {
-    const modal = document.getElementById('editTaskModal');
-    const modalContent = modal.querySelector('.modal-content');
-
-    // 添加关闭动画
-    modalContent.style.transform = 'scale(0.9)';
-    modalContent.style.opacity = '0';
-
-    setTimeout(() => {
-        modal.style.display = 'none';
-        document.getElementById('editTaskForm').reset();
-        document.getElementById('editTaskForm').removeEventListener('submit', handleEditTaskSubmit);
-        modalContent.style.transform = 'scale(0.9)';
-        modalContent.style.opacity = '0';
-    }, 300);
-}
-
-// 处理编辑任务表单提交
-async function handleEditTaskSubmit(e) {
+async function handleAddExternalCalendar(e) {
     e.preventDefault();
-
     const formData = new FormData(e.target);
-    const taskId = formData.get('taskId');
-    const channelSelect = document.getElementById('editChannel');
-    const channelType = channelSelect.options[0].value;
-    const channel = channels.find(c => c.value === channelType);
-    // 兼容 channel.config_fields 为数组或字符串的情况，避免 JSON.parse 在接收数组时报错
-    let configFields = [];
-    try {
-        if (channel) {
-            if (typeof channel.config_fields === 'string') {
-                configFields = JSON.parse(channel.config_fields || '[]');
-            } else if (Array.isArray(channel.config_fields)) {
-                configFields = channel.config_fields;
-            } else {
-                configFields = [];
-            }
-        }
-    } catch (err) {
-        console.error('解析 channel.config_fields 出错，回退为空数组:', err, channel && channel.config_fields);
-        configFields = [];
-    }
-
-    // 构建配置对象
-    const channelConfig = {};
-    configFields.forEach(field => {
-        const value = document.getElementById(`editConfig_${field}`).value;
-        channelConfig[field] = value;
-    });
-
-    // 构建任务数据
-    const scheduledTimeValue = formData.get('scheduledTime');
-    const taskData = {
-        title: formData.get('title'),
-        content: formData.get('content'),
-        channel: channelType,
-        scheduled_time: scheduledTimeValue ? (scheduledTimeValue.length === 16 ? `${scheduledTimeValue}:00` : scheduledTimeValue) : null,
-        channel_config: channelConfig
-        // 注意：不包含 is_recurring 和 cron_expression，因为后端不允许修改这些字段
+    const data = {
+        name: formData.get('name'),
+        url: formData.get('url'),
+        channel_id: formData.get('channel_id') || null
     };
-
+    
     try {
-        const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
-            method: 'PUT',
+        const response = await fetch(`${API_BASE}/calendar/external`, {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             },
-            body: JSON.stringify(taskData)
+            body: JSON.stringify(data)
         });
-
-        const result = await response.json();
-
+        
         if (response.ok) {
-            showNotification('任务更新成功！', 'success');
-            closeEditTaskModal();
-            loadTasks();
-            
-            // 如果当前在日历视图，重新加载日历数据
-            const calendarSection = document.querySelector('.card-section[data-section="calendar"]');
-            if (calendarSection && calendarSection.classList.contains('active')) {
-                // 清除缓存，强制重新获取数据
-                delete window.__TASKS_CACHE;
-                if (typeof window.loadCalendar === 'function') {
-                    console.log('Reloading calendar after task update');
-                    window.loadCalendar();
-                }
-            }
+            showNotification('日历订阅成功，正在后台同步...', 'success');
+            e.target.reset();
+            loadExternalCalendars();
         } else {
-            showNotification('更新失败: ' + result.error, 'error');
+            const res = await response.json();
+            showNotification(res.error, 'error');
         }
-    } catch (error) {
-        showNotification('更新失败: ' + error.message, 'error');
+    } catch (e) {
+        showNotification(e.message, 'error');
+    }
+}
+
+async function deleteExternalCalendar(id) {
+    if (!confirm('确定要取消订阅此日历吗？已导入的任务不会被删除。')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/calendar/external/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (response.ok) {
+            showNotification('已取消订阅', 'success');
+            loadExternalCalendars();
+        }
+    } catch (e) {
+        showNotification(e.message, 'error');
+    }
+}
+
+async function syncExternalCalendar(id) {
+    try {
+        const response = await fetch(`${API_BASE}/calendar/sync/${id}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (response.ok) {
+            showNotification('同步请求已发送', 'success');
+        }
+    } catch (e) {
+        showNotification(e.message, 'error');
     }
 }

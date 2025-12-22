@@ -102,6 +102,7 @@
                 <div class="user-info">
                     <span>👤 <span id="currentUsername"></span></span>
                     <button id="openCalendarBtn" class="btn btn-sm btn-ghost" onclick="openCalendarView()">📅 日历</button>
+                    <button class="btn btn-sm btn-ghost" onclick="openSyncModal()">🔄 订阅</button>
                     <button class="logout-btn" onclick="logout()">退出</button>
                 </div>
             </header>
@@ -293,6 +294,73 @@
 
                 <button type="submit" class="btn btn-primary">添加渠道</button>
             </form>
+        </div>
+    </div>
+
+    <!-- 日历同步模态框 -->
+    <div id="syncModal" class="modal">
+        <div class="modal-content" style="max-width: 650px;">
+            <span class="close" onclick="closeSyncModal()">&times;</span>
+            <h2>📅 日历订阅与同步</h2>
+            
+            <div class="login-tabs" style="margin-bottom: 20px;">
+                <div class="login-tab active" onclick="switchSyncTab('export')">导出 (订阅)</div>
+                <div class="login-tab" onclick="switchSyncTab('import')">导入 (同步)</div>
+            </div>
+
+            <!-- 导出/订阅 Tab -->
+            <div id="syncExportTab" class="tab-content active">
+                <div class="info-hint">
+                    ℹ️ 将您的通知任务添加到 Google Calendar、Outlook 或 Apple Calendar 中。
+                </div>
+                <div class="form-group">
+                    <label>您的专属订阅链接 (WebCal/iCal)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="calendarFeedUrl" readonly style="background: #f5f5f5; color: #666;" placeholder="点击生成按钮获取链接...">
+                        <button class="btn btn-info" onclick="copyFeedUrl()">复制</button>
+                    </div>
+                </div>
+                <div style="text-align: right; margin-top: 10px;">
+                    <button class="btn btn-sm btn-warning" onclick="generateCalendarToken()">🔄 重置/生成链接</button>
+                </div>
+                <div style="margin-top: 20px; font-size: 0.9rem; color: var(--text-muted);">
+                    <p><strong>如何使用：</strong></p>
+                    <ul style="padding-left: 20px; line-height: 1.6;">
+                        <li><strong>Google Calendar:</strong> 设置 > 添加日历 > 通过网址添加</li>
+                        <li><strong>Apple Calendar:</strong> 文件 > 新建日历订阅</li>
+                        <li><strong>Outlook:</strong> 添加日历 > 从 Internet 订阅</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 导入/同步 Tab -->
+            <div id="syncImportTab" class="tab-content">
+                <div class="info-hint">
+                    ℹ️ 订阅外部日历 (如节假日、公司日程)，自动创建通知任务。
+                </div>
+                
+                <form id="externalCalendarForm" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px dashed var(--divider);">
+                    <div class="form-group">
+                        <label>日历名称</label>
+                        <input type="text" name="name" placeholder="如：公司会议日历" required>
+                    </div>
+                    <div class="form-group">
+                        <label>iCal/ICS 链接</label>
+                        <input type="url" name="url" placeholder="https://example.com/calendar.ics" required>
+                    </div>
+                    <div class="form-group">
+                        <label>默认通知渠道</label>
+                        <select name="channel_id" id="importChannelSelect">
+                            <option value="">不发送通知 (仅导入)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">添加订阅</button>
+                </form>
+
+                <div id="externalCalendarList">
+                    <!-- 动态生成列表 -->
+                </div>
+            </div>
         </div>
     </div>
 

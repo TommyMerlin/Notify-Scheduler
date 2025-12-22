@@ -1,12 +1,14 @@
-from flask import Flask, request, jsonify, send_from_directory, Response
+from flask import Flask, request, jsonify, send_from_directory, Response, make_response
 from flask_cors import CORS
 from datetime import datetime
-from models import init_db, get_db, NotifyTask, NotifyChannel, NotifyStatus, User, UserChannel
+from models import init_db, get_db, NotifyTask, NotifyChannel, NotifyStatus, User, UserChannel, ExternalCalendar
 from scheduler import scheduler, get_cron_trigger, event_manager
 from auth import login_required, admin_required, user_login, user_register, update_user_profile
 import json
 import os
 import jwt
+import secrets
+import uuid
 
 app = Flask(__name__, static_folder='static')
 CORS(app)  # 启用跨域支持
@@ -19,6 +21,8 @@ init_db()
 
 # 加载待发送任务
 scheduler.load_pending_tasks()
+# 启动外部日历同步任务 (每15分钟)
+scheduler.add_external_calendar_sync_job()
 
 
 # 认证相关API
@@ -733,6 +737,196 @@ def sse_events():
 
     return Response(stream(), mimetype='text/event-stream')
 
+
+# --- 日历订阅与同步相关 API ---
+
+@app.route('/api/calendar/token', methods=['GET', 'POST'])
+@login_required
+def manage_calendar_token():
+    """获取或重置日历订阅Token"""
+    try:
+        with get_db() as db:
+            user = db.query(User).filter(User.id == request.current_user.id).first()
+            
+            if request.method == 'POST' or not user.calendar_token:
+                # 生成新Token
+                user.calendar_token = secrets.token_urlsafe(32)
+                db.commit()
+            
+            # 智能检测协议，解决反向代理下的 Mixed Content 问题导致浏览器提示"无法安全下载"
+            scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
+            feed_url = f"{scheme}://{request.host}/calendar/feed/{user.calendar_token}.ics"
+                
+            return jsonify({
+                'token': user.calendar_token,
+                'feed_url': feed_url
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/calendar/feed/<token>.ics')
+def calendar_feed(token):
+    """生成 iCalendar (.ics) 订阅源"""
+    try:
+        with get_db() as db:
+            user = db.query(User).filter(User.calendar_token == token).first()
+            if not user:
+                return "Invalid Token", 404
+            
+            tasks = db.query(NotifyTask).filter(
+                NotifyTask.user_id == user.id,
+                NotifyTask.status != NotifyStatus.CANCELLED
+            ).all()
+            
+            # 构建 ICS 内容
+            lines = [
+                "BEGIN:VCALENDAR",
+                "VERSION:2.0",
+                "PRODID:-//Notify Scheduler//CN",
+                "CALSCALE:GREGORIAN",
+                "METHOD:PUBLISH",
+                f"X-WR-CALNAME:Notify Scheduler ({user.username})",
+                "X-WR-TIMEZONE:Asia/Shanghai",
+            ]
+            
+            for task in tasks:
+                if not task.scheduled_time:
+                    continue
+                    
+                dt_start = task.scheduled_time.strftime('%Y%m%dT%H%M%S')
+                # 简单的结束时间 (开始时间 + 30分钟)
+                dt_end = (task.scheduled_time.timestamp() + 1800)
+                dt_end_str = datetime.fromtimestamp(dt_end).strftime('%Y%m%dT%H%M%S')
+                
+                lines.append("BEGIN:VEVENT")
+                lines.append(f"UID:notify-task-{task.id}@{request.host}")
+                lines.append(f"DTSTAMP:{datetime.now().strftime('%Y%m%dT%H%M%SZ')}")
+                lines.append(f"DTSTART;TZID=Asia/Shanghai:{dt_start}")
+                lines.append(f"DTEND;TZID=Asia/Shanghai:{dt_end_str}")
+                lines.append(f"SUMMARY:{task.title}")
+                
+                # 处理描述 (转义换行)
+                desc = (task.content or "").replace("\n", "\\n")
+                lines.append(f"DESCRIPTION:{desc}")
+                
+                status_map = {
+                    NotifyStatus.PENDING: 'TENTATIVE',
+                    NotifyStatus.SENT: 'CONFIRMED',
+                    NotifyStatus.FAILED: 'CONFIRMED',
+                    NotifyStatus.PAUSED: 'CANCELLED'
+                }
+                lines.append(f"STATUS:{status_map.get(task.status, 'CONFIRMED')}")
+                
+                if task.is_recurring and task.cron_expression:
+                    # 简单的 RRULE 转换 (仅支持基础 Cron 转换，复杂 Cron 难以完全映射到 RRULE)
+                    # 这里仅作标记，实际日历软件可能无法完美解析所有 Cron
+                    lines.append(f"X-CRON-EXPRESSION:{task.cron_expression}")
+                    
+                lines.append("END:VEVENT")
+                
+            lines.append("END:VCALENDAR")
+            
+            response = make_response("\r\n".join(lines))
+            response.headers['Content-Type'] = 'text/calendar; charset=utf-8'
+            response.headers['Content-Disposition'] = 'attachment; filename="notify_scheduler.ics"'
+            # 添加缓存控制头
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
+            
+    except Exception as e:
+        return str(e), 500
+
+@app.route('/api/calendar/external', methods=['GET'])
+@login_required
+def list_external_calendars():
+    """获取外部日历列表"""
+    try:
+        with get_db() as db:
+            cals = db.query(ExternalCalendar).filter(ExternalCalendar.user_id == request.current_user.id).all()
+            return jsonify({'calendars': [c.to_dict() for c in cals]})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/calendar/external', methods=['POST'])
+@login_required
+def add_external_calendar():
+    """添加外部日历订阅"""
+    try:
+        data = request.get_json()
+        if not data.get('name') or not data.get('url'):
+            return jsonify({'error': '名称和URL不能为空'}), 400
+            
+        with get_db() as db:
+            cal = ExternalCalendar(
+                user_id=request.current_user.id,
+                name=data['name'],
+                url=data['url'],
+                channel_id=data.get('channel_id')
+            )
+            db.add(cal)
+            db.commit()
+            
+            # 立即触发一次同步
+            from scheduler import sync_single_calendar
+            scheduler.scheduler.add_job(
+                sync_single_calendar, 
+                args=[cal.id], 
+                id=f"sync_cal_{cal.id}_init",
+                misfire_grace_time=300
+            )
+            
+            return jsonify({'message': '日历添加成功，正在后台同步', 'calendar': cal.to_dict()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/calendar/external/<int:cal_id>', methods=['DELETE'])
+@login_required
+def delete_external_calendar(cal_id):
+    """删除外部日历"""
+    try:
+        with get_db() as db:
+            cal = db.query(ExternalCalendar).filter(
+                ExternalCalendar.id == cal_id,
+                ExternalCalendar.user_id == request.current_user.id
+            ).first()
+            if not cal:
+                return jsonify({'error': '日历不存在'}), 404
+                
+            # 可选：删除该日历导入的任务
+            # db.query(NotifyTask).filter(NotifyTask.external_uid.like(f"ext-{cal_id}-%")).delete(synchronize_session=False)
+            
+            db.delete(cal)
+            db.commit()
+            return jsonify({'message': '日历已删除'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/calendar/sync/<int:cal_id>', methods=['POST'])
+@login_required
+def sync_external_calendar_endpoint(cal_id):
+    """手动触发同步"""
+    try:
+        with get_db() as db:
+            cal = db.query(ExternalCalendar).filter(
+                ExternalCalendar.id == cal_id,
+                ExternalCalendar.user_id == request.current_user.id
+            ).first()
+            if not cal:
+                return jsonify({'error': '日历不存在'}), 404
+        
+        from scheduler import sync_single_calendar
+        # 异步执行
+        scheduler.scheduler.add_job(
+            sync_single_calendar, 
+            args=[cal_id], 
+            id=f"sync_cal_{cal_id}_manual_{uuid.uuid4().hex[:8]}",
+            misfire_grace_time=300
+        )
+        return jsonify({'message': '同步任务已提交'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     try:

@@ -334,7 +334,7 @@ header p {
 
 .btn-ghost {
     background: rgba(15, 23, 42, 0.06);
-    color: var(--text-strong);
+    color: #ffffff;
     border: 1px solid rgba(15, 23, 42, 0.08);
 }
 
@@ -996,6 +996,31 @@ header p {
 .modal.show .modal-content {
     transform: scale(1);
     opacity: 1;
+}
+
+/* 日历同步模态框样式 */
+#syncModal .login-tabs {
+    margin-bottom: 20px;
+    background: rgba(99, 102, 241, 0.05);
+}
+
+#syncModal .info-hint {
+    margin-bottom: 20px;
+}
+
+#syncModal input[readonly] {
+    cursor: pointer;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+#externalCalendarList {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#externalCalendarList .channel-item {
+    padding: 12px 16px;
 }
 
 .close {

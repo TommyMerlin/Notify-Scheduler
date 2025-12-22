@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean, Enum, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean, Enum, ForeignKey, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from contextlib import contextmanager
@@ -60,10 +60,12 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, comment="更新时间")
     last_login = Column(DateTime, nullable=True, comment="最后登录时间")
+    calendar_token = Column(String(64), unique=True, nullable=True, comment="日历订阅Token")
 
     # 关联关系
     notify_tasks = relationship("NotifyTask", back_populates="user", cascade="all, delete-orphan")
     notify_channels = relationship("UserChannel", back_populates="user", cascade="all, delete-orphan")
+    external_calendars = relationship("ExternalCalendar", back_populates="user", cascade="all, delete-orphan")
 
     def set_password(self, password):
         """设置密码"""
@@ -83,7 +85,37 @@ class User(Base):
             'is_active': self.is_active,
             'is_admin': self.is_admin,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'last_login': self.last_login.isoformat() if self.last_login else None
+            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'calendar_token': self.calendar_token
+        }
+
+
+class ExternalCalendar(Base):
+    """外部日历订阅"""
+    __tablename__ = 'external_calendars'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, comment="用户ID")
+    name = Column(String(100), nullable=False, comment="日历名称")
+    url = Column(String(500), nullable=False, comment="ICS链接")
+    channel_id = Column(Integer, ForeignKey('user_channels.id'), nullable=True, comment="默认通知渠道")
+    last_sync = Column(DateTime, nullable=True, comment="最后同步时间")
+    is_active = Column(Boolean, default=True, comment="是否启用")
+    
+    created_at = Column(DateTime, default=datetime.now, comment="创建时间")
+    
+    user = relationship("User", back_populates="external_calendars")
+    channel = relationship("UserChannel")
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'url': self.url,
+            'channel_id': self.channel_id,
+            'last_sync': self.last_sync.isoformat() if self.last_sync else None,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
 
@@ -153,6 +185,7 @@ class NotifyTask(Base):
     # 是否重复任务
     is_recurring = Column(Boolean, default=False, comment="是否重复任务")
     cron_expression = Column(String(100), nullable=True, comment="Cron表达式（用于重复任务）")
+    external_uid = Column(String(255), nullable=True, comment="外部日历事件UID")
 
     # 关联关系
     user = relationship("User", back_populates="notify_tasks")
@@ -181,7 +214,8 @@ class NotifyTask(Base):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'is_recurring': self.is_recurring,
             'cron_expression': self.cron_expression,
-            'channel_config': channel_config
+            'channel_config': channel_config,
+            'external_uid': self.external_uid
         }
 
 
@@ -196,6 +230,25 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def init_db():
     """初始化数据库"""
     Base.metadata.create_all(bind=engine)
+    
+    # 简单的自动迁移逻辑：检查并添加新字段
+    try:
+        with engine.connect() as conn:
+            # 1. 检查 users.calendar_token
+            try:
+                conn.execute(text("SELECT calendar_token FROM users LIMIT 1"))
+            except Exception:
+                print("Migrating: Adding calendar_token to users table...")
+                conn.execute(text("ALTER TABLE users ADD COLUMN calendar_token VARCHAR(64)"))
+                
+            # 2. 检查 notify_tasks.external_uid
+            try:
+                conn.execute(text("SELECT external_uid FROM notify_tasks LIMIT 1"))
+            except Exception:
+                print("Migrating: Adding external_uid to notify_tasks table...")
+                conn.execute(text("ALTER TABLE notify_tasks ADD COLUMN external_uid VARCHAR(255)"))
+    except Exception as e:
+        print(f"Migration warning: {e}")
 
 
 @contextmanager

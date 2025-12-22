@@ -2,10 +2,12 @@ from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.cron import CronTrigger
-from models import NotifyTask, NotifyStatus, get_db
+from models import NotifyTask, NotifyStatus, ExternalCalendar, UserChannel, get_db
 from notifier import NotificationSender, parse_config
 import logging
 import queue
+import requests
+import re
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -255,6 +257,164 @@ class NotifyScheduler:
         self.scheduler.shutdown()
         logger.info("通知调度器已关闭")
 
+    def add_external_calendar_sync_job(self):
+        """添加外部日历同步定时任务"""
+        if not self.scheduler.get_job('sync_external_calendars'):
+            self.scheduler.add_job(
+                sync_all_external_calendars,
+                'interval',
+                minutes=15,
+                id='sync_external_calendars',
+                replace_existing=True
+            )
+            logger.info("外部日历同步任务已启动 (每15分钟)")
+
 
 # 全局调度器实例
 scheduler = NotifyScheduler()
+
+# --- 外部日历同步逻辑 ---
+
+def parse_ics_content(content):
+    """简易 ICS 解析器 (避免引入 heavy 依赖)"""
+    events = []
+    lines = content.replace('\r\n', '\n').split('\n')
+    
+    # 处理折行 (line unfolding)
+    unfolded_lines = []
+    for line in lines:
+        if line.startswith(' ') or line.startswith('\t'):
+            if unfolded_lines:
+                unfolded_lines[-1] += line[1:]
+        else:
+            unfolded_lines.append(line)
+            
+    current_event = {}
+    in_event = False
+    
+    for line in unfolded_lines:
+        if line == 'BEGIN:VEVENT':
+            in_event = True
+            current_event = {}
+        elif line == 'END:VEVENT':
+            in_event = False
+            if 'DTSTART' in current_event and 'SUMMARY' in current_event:
+                events.append(current_event)
+        elif in_event:
+            if ':' in line:
+                key, val = line.split(':', 1)
+                # 处理参数 (如 DTSTART;TZID=...)
+                prop_name = key.split(';')[0]
+                current_event[prop_name] = val
+                
+    return events
+
+def parse_ics_date(date_str):
+    """解析 ICS 日期字符串"""
+    try:
+        # 格式: 20230101T120000Z 或 20230101T120000
+        clean_str = date_str.replace('Z', '')
+        if len(clean_str) == 8: # 仅日期
+            return datetime.strptime(clean_str, '%Y%m%d')
+        return datetime.strptime(clean_str, '%Y%m%dT%H%M%S')
+    except Exception:
+        return None
+
+def sync_single_calendar(cal_id):
+    """同步单个外部日历"""
+    with get_db() as db:
+        try:
+            cal = db.query(ExternalCalendar).filter(ExternalCalendar.id == cal_id).first()
+            if not cal or not cal.is_active:
+                return
+
+            logger.info(f"开始同步日历: {cal.name} ({cal.url})")
+            
+            # 获取默认渠道配置
+            channel_config = "{}"
+            channel_type = "email" # 默认 fallback
+            if cal.channel_id:
+                channel = db.query(UserChannel).filter(UserChannel.id == cal.channel_id).first()
+                if channel:
+                    channel_config = channel.channel_config
+                    channel_type = channel.channel_type
+            
+            # 下载 ICS
+            resp = requests.get(cal.url, timeout=30)
+            resp.raise_for_status()
+            
+            events = parse_ics_content(resp.text)
+            count = 0
+            
+            for event in events:
+                uid = event.get('UID')
+                if not uid:
+                    continue
+                    
+                ext_uid = f"ext-{cal.id}-{uid}"
+                summary = event.get('SUMMARY', '无标题')
+                desc = event.get('DESCRIPTION', '')
+                dt_start_str = event.get('DTSTART')
+                
+                dt_start = parse_ics_date(dt_start_str)
+                if not dt_start or dt_start < datetime.now():
+                    continue # 跳过过去的任务
+                
+                # 检查是否存在
+                existing = db.query(NotifyTask).filter(NotifyTask.external_uid == ext_uid).first()
+                
+                if existing:
+                    # 更新
+                    if existing.scheduled_time != dt_start or existing.title != summary:
+                        existing.scheduled_time = dt_start
+                        existing.title = summary
+                        existing.content = desc or summary
+                        # 如果任务之前已发送或取消，重新激活
+                        if existing.status in [NotifyStatus.SENT, NotifyStatus.CANCELLED]:
+                            existing.status = NotifyStatus.PENDING
+                        scheduler.add_task(existing)
+                        count += 1
+                else:
+                    # 创建新任务
+                    new_task = NotifyTask(
+                        user_id=cal.user_id,
+                        title=summary,
+                        content=desc or summary,
+                        channel=channel_type,
+                        channel_config=channel_config,
+                        scheduled_time=dt_start,
+                        status=NotifyStatus.PENDING,
+                        external_uid=ext_uid,
+                        is_recurring=False # 外部日历的重复由外部处理，这里只同步具体事件
+                    )
+                    db.add(new_task)
+                    db.commit() # 提交以获取 ID
+                    scheduler.add_task(new_task)
+                    count += 1
+            
+            cal.last_sync = datetime.now()
+            db.commit()
+            logger.info(f"日历 {cal.name} 同步完成，更新/创建 {count} 个任务")
+            
+            # 通知前端
+            event_manager.announce(cal.user_id, {
+                'type': 'calendar_synced',
+                'message': f'日历 "{cal.name}" 同步完成'
+            })
+            
+        except Exception as e:
+            logger.error(f"同步日历 {cal_id} 失败: {str(e)}")
+
+def sync_all_external_calendars():
+    """同步所有活跃的外部日历"""
+    with get_db() as db:
+        cals = db.query(ExternalCalendar).filter(ExternalCalendar.is_active == True).all()
+        for cal in cals:
+            # 为每个日历创建一个单独的 job 立即执行，避免阻塞
+            scheduler.scheduler.add_job(
+                sync_single_calendar,
+                args=[cal.id],
+                id=f"sync_cal_{cal.id}_auto",
+                replace_existing=True,
+                misfire_grace_time=60
+            )
