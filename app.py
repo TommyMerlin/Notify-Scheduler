@@ -288,8 +288,8 @@ def get_task(task_id):
 
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 @login_required
-def cancel_task(task_id):
-    """取消任务"""
+def delete_task(task_id):
+    """彻底删除任务"""
     try:
         with get_db() as db:
             task = db.query(NotifyTask).filter(
@@ -299,14 +299,14 @@ def cancel_task(task_id):
             if not task:
                 return jsonify({'error': '任务不存在'}), 404
 
-            # 更新状态为已取消
-            task.status = NotifyStatus.CANCELLED
-            db.commit()
-
             # 从调度器移除
             scheduler.remove_task(task_id, task.is_recurring)
 
-            return jsonify({'message': '任务已取消'})
+            # 彻底删除
+            db.delete(task)
+            db.commit()
+
+            return jsonify({'message': '任务已彻底删除'})
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -334,11 +334,21 @@ def update_task(task_id):
             # 记录原始状态
             original_status = task.status
 
-            # 处理状态变更（暂停/恢复）
+            # 处理状态变更（暂停/恢复/取消）
             if 'status' in data:
                 try:
                     target_status_str = data['status']
                     
+                    # 取消任务 (软删除)
+                    if target_status_str == 'cancelled':
+                        task.status = NotifyStatus.CANCELLED
+                        scheduler.remove_task(task_id, task.is_recurring)
+                        db.commit()
+                        return jsonify({
+                            'message': '任务已取消',
+                            'task': task.to_dict()
+                        })
+
                     # 暂停任务
                     if target_status_str == 'paused':
                         task.status = NotifyStatus.PAUSED

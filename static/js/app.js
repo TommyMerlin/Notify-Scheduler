@@ -899,6 +899,9 @@ function createTaskElement(task) {
     const channelText = channels.find(c => c.value === task.channel)?.label || task.channel;
     const scheduleLabel = task.is_recurring ? '📅 下一次执行时间' : '📅 计划时间';
 
+    // 定义删除按钮
+    const deleteBtn = `<button class="btn btn-sm btn-ghost" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.2);" onclick="deleteTask(${task.id})">🗑️ 删除</button>`;
+
     div.innerHTML = `
         <div class="task-header">
             <div>
@@ -924,12 +927,15 @@ function createTaskElement(task) {
                 <button class="btn btn-sm btn-info" onclick="editTask(${task.id})">编辑</button>
                 ${task.is_recurring ? `<button class="btn btn-sm btn-warning" onclick="toggleTaskPause(${task.id}, 'pause')">暂停</button>` : ''}
                 <button class="btn btn-sm btn-danger" onclick="cancelTask(${task.id})">取消任务</button>
+                ${deleteBtn}
             ` : task.status === 'paused' ? `
                 <button class="btn btn-sm btn-info" onclick="editTask(${task.id})">编辑</button>
                 <button class="btn btn-sm btn-success" onclick="toggleTaskPause(${task.id}, 'resume')">恢复</button>
                 <button class="btn btn-sm btn-danger" onclick="cancelTask(${task.id})">取消任务</button>
+                ${deleteBtn}
             ` : `
                 <button class="btn btn-sm btn-success" onclick="editTask(${task.id})">重新启用</button>
+                ${deleteBtn}
             `}
         </div>
     `;
@@ -1097,11 +1103,11 @@ function showConfirmDialog({
     });
 }
 
-// 取消任务
+// 取消任务（软删除）
 async function cancelTask(taskId) {
     const confirmed = await showConfirmDialog({
         title: '取消任务',
-        message: '确定要取消这个任务吗？此操作不可恢复。',
+        message: '确定要取消这个任务吗？\n取消后任务将停止发送，但保留在列表中，可以重新启用。',
         confirmText: '确认取消',
         cancelText: '保留任务'
     });
@@ -1109,11 +1115,14 @@ async function cancelTask(taskId) {
     if (!confirmed) return;
 
     try {
+        // 使用 PUT 更新状态为 cancelled
         const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
-            method: 'DELETE',
+            method: 'PUT',
             headers: {
+                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
+            },
+            body: JSON.stringify({ status: 'cancelled' })
         });
 
         const result = await response.json();
@@ -1132,6 +1141,44 @@ async function cancelTask(taskId) {
         }
     } catch (error) {
         showNotification('取消失败: ' + error.message, 'error');
+    }
+}
+
+// 彻底删除任务（硬删除）
+async function deleteTask(taskId) {
+    const confirmed = await showConfirmDialog({
+        title: '彻底删除任务',
+        message: '⚠️ 确定要彻底删除这个任务吗？\n此操作将永久移除任务记录，无法恢复！',
+        confirmText: '彻底删除',
+        cancelText: '取消'
+    });
+
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/tasks/${taskId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showNotification('任务已彻底删除', 'success');
+            loadTasks();
+
+            // 刷新日历
+            if (typeof window.loadCalendar === 'function') {
+                delete window.__TASKS_CACHE;
+                window.loadCalendar();
+            }
+        } else {
+            showNotification('删除失败: ' + result.error, 'error');
+        }
+    } catch (error) {
+        showNotification('删除失败: ' + error.message, 'error');
     }
 }
 
