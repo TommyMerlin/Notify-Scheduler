@@ -8,8 +8,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/styles.css?v=0.4.0">
-    <link rel="stylesheet" href="/static/css/calendar.css?v=0.4.0">
+    
+    <!-- 动态加载 CSS 以避免缓存 -->
+    <script>
+        (function() {
+            var v = Date.now();
+            document.write('<link rel="stylesheet" href="/static/css/styles.css?v=' + v + '">');
+            document.write('<link rel="stylesheet" href="/static/css/calendar.css?v=' + v + '">');
+        })();
+    </script>
 </head>
 <body>
     <!-- 登录界面 -->
@@ -514,7 +521,14 @@
         });
     })();
     </script>
-    <script src="/static/js/app.js?v=0.4.0"></script>
-    <script src="/static/js/calendar.js?v=0.4.0"></script>
+    
+    <!-- 动态加载 JS 以避免缓存 -->
+    <script>
+        (function() {
+            var v = Date.now();
+            document.write('<script src="/static/js/app.js?v=' + v + '"><\/script>');
+            document.write('<script src="/static/js/calendar.js?v=' + v + '"><\/script>');
+        })();
+    </script>
 </body>
 </html>
