@@ -1359,10 +1359,9 @@ function adjustLayoutForScreenSize() {
             // 预留头部和底部空间
             const maxListHeight = Math.max(300, viewportHeight - 250);
             taskList.style.maxHeight = `${maxListHeight}px`;
-        } else if (width >= 1400) {
-            taskList.style.maxHeight = '700px';
         } else {
-            taskList.style.maxHeight = '600px';
+            // 非移动端移除 max-height 限制，使用 CSS flex 自适应
+            taskList.style.maxHeight = '';
         }
     }
 
