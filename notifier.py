@@ -1,5 +1,6 @@
 import json
 import requests
+from datetime import datetime
 from urllib.parse import urljoin
 from models import NotifyChannel
 
@@ -7,6 +8,36 @@ from models import NotifyChannel
 class NotificationSender:
     """通知发送器基类"""
     
+    @staticmethod
+    def _process_template(text: str) -> str:
+        """处理文本中的变量模板"""
+        if not text:
+            return text
+            
+        now = datetime.now()
+        weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        weekdays_cn = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
+
+        replacements = {
+            '{{date}}': now.strftime('%Y-%m-%d'),
+            '{{time}}': now.strftime('%H:%M:%S'),
+            '{{datetime}}': now.strftime('%Y-%m-%d %H:%M:%S'),
+            '{{year}}': now.strftime('%Y'),
+            '{{month}}': now.strftime('%m'),
+            '{{day}}': now.strftime('%d'),
+            '{{hour}}': now.strftime('%H'),
+            '{{minute}}': now.strftime('%M'),
+            '{{second}}': now.strftime('%S'),
+            '{{timestamp}}': str(int(now.timestamp())),
+            '{{weekday}}': weekdays[now.weekday()],
+            '{{weekday_cn}}': weekdays_cn[now.weekday()]
+        }
+        
+        for key, value in replacements.items():
+            text = text.replace(key, value)
+            
+        return text
+
     @staticmethod
     def send(channel: NotifyChannel, config: dict, title: str, content: str):
         """
@@ -21,6 +52,10 @@ class NotificationSender:
         Returns:
             bool: 发送是否成功
         """
+        # 处理变量替换
+        title = NotificationSender._process_template(title)
+        content = NotificationSender._process_template(content)
+
         try:
             if channel == NotifyChannel.WECOM:
                 return NotificationSender._send_wecom(config, title, content)
