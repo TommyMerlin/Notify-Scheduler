@@ -1181,7 +1181,7 @@ function escapeHtml(text) {
 }
 
 // 自动刷新任务列表（每30秒）
-setInterval(loadTasks, 30000);
+// setInterval(loadTasks, 30000);
 
 // 响应式增强功能
 function initResponsiveFeatures() {
