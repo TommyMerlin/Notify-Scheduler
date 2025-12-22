@@ -2,8 +2,17 @@
 
 基于 [ANotify](https://github.com/TommyMerlin/ANotify) 库的通知定时发送系统，支持多种通知渠道的定时和重复发送。提供完整的 Web 管理界面和 RESTful API。
 
+- **主界面**
 ![主界面](./assets/main-page.png)
+
+- **日历视图**
 ![日历](./assets/calendar.png)
+
+- **日历导出(订阅)**
+![日历导出](./assets/calendar_export.png)
+
+- **日历导入(同步)**
+![日历导入](./assets/calendar_import.png)
 
 ## 功能特性
 
@@ -437,6 +446,7 @@ A: 在 `notifier.py` 中添加新的发送方法，并在 `models.py` 中添加�
 - [x] 日历视图支持点击任务进行编辑
 - [x] 移动端响应式适配与触摸优化
 - [x] 拖拽调整任务时间（日历视图）
+- [x] 日历订阅及同步功能
 - [ ] 通知群组/广播，允许将多个渠道打包成一个群组，实现一次任务多渠道分发
 - [ ] 失败自动重试
 - [ ] 重复任务暂停功能
