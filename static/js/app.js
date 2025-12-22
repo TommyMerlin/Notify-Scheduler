@@ -1257,10 +1257,10 @@ function adjustLayoutForScreenSize() {
     const taskList = document.getElementById('taskList');
     if (taskList && taskList.style.display !== 'none') {
         if (isMobile) {
+            // 简化移动端高度计算，避免受隐藏元素影响
             const viewportHeight = window.innerHeight;
-            const headerHeight = document.querySelector('header')?.offsetHeight || 200;
-            const formHeight = document.querySelector('.card')?.offsetHeight || 400;
-            const maxListHeight = Math.max(300, viewportHeight - headerHeight - formHeight - 150);
+            // 预留头部和底部空间
+            const maxListHeight = Math.max(300, viewportHeight - 250);
             taskList.style.maxHeight = `${maxListHeight}px`;
         } else if (width >= 1400) {
             taskList.style.maxHeight = '700px';

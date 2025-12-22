@@ -1403,7 +1403,7 @@ header p {
 /* Ensure columns can be equal-height and the task-list scrollbar stretches with the card height */
 .main-content {
     /* keep existing grid layout but allow children to stretch to match the tallest column */
-    align-items: start;
+    align-items: stretch;
 }
 
 /* Make cards use a column flex layout so their inner area can grow/shrink predictably */
@@ -1424,6 +1424,26 @@ header p {
 .task-list {
     flex: 1 1 auto;
     min-height: 0;
-    max-height: none !important; /* override previous fixed max-height values */
     overflow-y: auto;
+}
+
+/* Desktop: allow list to fill card height */
+@media (min-width: 969px) {
+    #taskList,
+    .task-list {
+        max-height: none;
+    }
+}
+
+/* Mobile: ensure proper scrolling and height */
+@media (max-width: 968px) {
+    .card {
+        height: auto;
+        min-height: auto;
+    }
+    
+    #taskList,
+    .task-list {
+        max-height: 65vh !important; 
+    }
 }

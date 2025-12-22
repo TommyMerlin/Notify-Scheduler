@@ -435,3 +435,67 @@ body.dark-mode .calendar-day.drag-over {
 body.dark-mode .calendar-day.drag-over::after {
 	background: rgba(139, 156, 255, 0.9);
 }
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+    .calendar-cell {
+        min-height: 80px;
+        padding: 4px;
+    }
+    
+    .calendar-day-number {
+        font-size: 0.8rem;
+        top: 4px;
+        right: 6px;
+    }
+    
+    .calendar-badge {
+        top: 4px;
+        left: 4px;
+        padding: 1px 4px;
+        font-size: 0.6rem;
+    }
+    
+    .calendar-day-preview {
+        bottom: 4px;
+        left: 2px;
+        right: 2px;
+        gap: 2px;
+    }
+    
+    .calendar-day-preview li {
+        font-size: 0.65rem;
+        padding: 2px 4px 2px 10px;
+        border-left-width: 2px;
+    }
+    
+    .calendar-weekdays .calendar-cell {
+        font-size: 0.75rem;
+        padding: 4px 0;
+    }
+    
+    .calendar-controls {
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .calendar-month-label {
+        font-size: 1.2rem;
+    }
+    
+    /* Adjust task list in day view */
+    .calendar-task-row {
+        padding: 8px;
+        gap: 6px;
+    }
+    
+    .calendar-task-time {
+        font-size: 0.85rem;
+        min-width: 45px;
+    }
+    
+    .calendar-task-status-label {
+        font-size: 0.7rem;
+        padding: 1px 6px;
+    }
+}
