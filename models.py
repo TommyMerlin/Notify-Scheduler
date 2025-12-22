@@ -167,11 +167,16 @@ class NotifyTask(Base):
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False, comment="用户ID")
     title = Column(String(200), nullable=False, comment="通知标题")
     content = Column(Text, nullable=False, comment="通知内容")
-    channel = Column(Enum(NotifyChannel, values_callable=lambda obj: [e.value for e in NotifyChannel]), nullable=False, comment="通知渠道")
+    channel = Column(Enum(NotifyChannel, values_callable=lambda obj: [e.value for e in NotifyChannel]), nullable=True, comment="通知渠道（单渠道模式）")
     scheduled_time = Column(DateTime, nullable=False, comment="计划发送时间")
 
     # 渠道配置（JSON格式字符串）
-    channel_config = Column(Text, nullable=False, comment="渠道配置信息")
+    channel_config = Column(Text, nullable=True, comment="渠道配置信息（单渠道模式）")
+    
+    # 多渠道支持
+    channels_json = Column(Text, nullable=True, comment="通知渠道数组（JSON格式，多渠道模式）")
+    channels_config_json = Column(Text, nullable=True, comment="渠道配置映射（JSON格式，多渠道模式）")
+    send_results = Column(Text, nullable=True, comment="各渠道发送结果（JSON格式）")
 
     # 状态相关
     status = Column(Enum(NotifyStatus, values_callable=lambda obj: [e.value for e in NotifyStatus]), default=NotifyStatus.PENDING, comment="发送状态")
@@ -201,12 +206,28 @@ class NotifyTask(Base):
                 channel_config = ast.literal_eval(self.channel_config) if self.channel_config else {}
             except:
                 channel_config = {}
+        
+        # 安全解析多渠道字段
+        try:
+            channels = json.loads(self.channels_json) if self.channels_json else None
+        except (json.JSONDecodeError, TypeError):
+            channels = None
+        
+        try:
+            channels_config = json.loads(self.channels_config_json) if self.channels_config_json else None
+        except (json.JSONDecodeError, TypeError):
+            channels_config = None
+        
+        try:
+            send_results = json.loads(self.send_results) if self.send_results else None
+        except (json.JSONDecodeError, TypeError):
+            send_results = None
 
-        return {
+        result = {
             'id': self.id,
             'title': self.title,
             'content': self.content,
-            'channel': self.channel.value,
+            'channel': self.channel.value if self.channel else None,
             'scheduled_time': self.scheduled_time.isoformat() if self.scheduled_time else None,
             'status': self.status.value,
             'sent_time': self.sent_time.isoformat() if self.sent_time else None,
@@ -217,6 +238,14 @@ class NotifyTask(Base):
             'channel_config': channel_config,
             'external_uid': self.external_uid
         }
+        
+        # 添加多渠道字段（如果存在）
+        if channels:
+            result['channels'] = channels
+            result['channels_config'] = channels_config
+            result['send_results'] = send_results
+        
+        return result
 
 
 # 数据库配置
@@ -240,6 +269,7 @@ def init_db():
             except Exception:
                 print("Migrating: Adding calendar_token to users table...")
                 conn.execute(text("ALTER TABLE users ADD COLUMN calendar_token VARCHAR(64)"))
+                conn.commit()
                 
             # 2. 检查 notify_tasks.external_uid
             try:
@@ -247,6 +277,74 @@ def init_db():
             except Exception:
                 print("Migrating: Adding external_uid to notify_tasks table...")
                 conn.execute(text("ALTER TABLE notify_tasks ADD COLUMN external_uid VARCHAR(255)"))
+                conn.commit()
+            
+            # 3. 检查 notify_tasks.channels_json（多渠道支持）
+            try:
+                conn.execute(text("SELECT channels_json FROM notify_tasks LIMIT 1"))
+            except Exception:
+                print("Migrating: Adding multi-channel support fields to notify_tasks table...")
+                conn.execute(text("ALTER TABLE notify_tasks ADD COLUMN channels_json TEXT"))
+                conn.execute(text("ALTER TABLE notify_tasks ADD COLUMN channels_config_json TEXT"))
+                conn.execute(text("ALTER TABLE notify_tasks ADD COLUMN send_results TEXT"))
+                conn.commit()
+            
+            # 4. 移除 channel 和 channel_config 的 NOT NULL 约束（多渠道模式需要）
+            # SQLite 不支持直接修改列约束，需要重建表
+            try:
+                # 检查是否已经迁移（通过尝试插入 channel=NULL 的记录）
+                result = conn.execute(text("SELECT sql FROM sqlite_master WHERE type='table' AND name='notify_tasks'"))
+                table_schema = result.fetchone()[0]
+                
+                # 如果表结构中 channel 字段仍有 NOT NULL 约束
+                if 'channel' in table_schema and 'channel TEXT NOT NULL' in table_schema:
+                    print("Migrating: Removing NOT NULL constraint from channel and channel_config...")
+                    
+                    # 创建临时表
+                    conn.execute(text("""
+                        CREATE TABLE notify_tasks_new (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER NOT NULL,
+                            title VARCHAR(200) NOT NULL,
+                            content TEXT NOT NULL,
+                            channel TEXT,
+                            scheduled_time DATETIME NOT NULL,
+                            channel_config TEXT,
+                            channels_json TEXT,
+                            channels_config_json TEXT,
+                            send_results TEXT,
+                            status TEXT DEFAULT 'pending',
+                            sent_time DATETIME,
+                            error_msg TEXT,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            is_recurring BOOLEAN DEFAULT 0,
+                            cron_expression VARCHAR(100),
+                            external_uid VARCHAR(255),
+                            FOREIGN KEY (user_id) REFERENCES users(id)
+                        )
+                    """))
+                    
+                    # 复制数据
+                    conn.execute(text("""
+                        INSERT INTO notify_tasks_new 
+                        SELECT id, user_id, title, content, channel, scheduled_time, 
+                               channel_config, channels_json, channels_config_json, send_results,
+                               status, sent_time, error_msg, created_at, updated_at, 
+                               is_recurring, cron_expression, external_uid
+                        FROM notify_tasks
+                    """))
+                    
+                    # 删除旧表
+                    conn.execute(text("DROP TABLE notify_tasks"))
+                    
+                    # 重命名新表
+                    conn.execute(text("ALTER TABLE notify_tasks_new RENAME TO notify_tasks"))
+                    
+                    conn.commit()
+                    print("Migration completed: channel and channel_config are now nullable")
+            except Exception as e:
+                print(f"Channel nullable migration info: {e}")
     except Exception as e:
         print(f"Migration warning: {e}")
 

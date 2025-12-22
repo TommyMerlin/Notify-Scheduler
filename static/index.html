@@ -134,13 +134,31 @@
 
                         <div class="form-group">
                             <label for="channel">通知渠道 *</label>
-                            <select id="channel" name="channel" required>
-                                <option value="">请选择通知渠道</option>
-                            </select>
+                            <div class="checkbox-group" style="margin-bottom: 10px;">
+                                <input type="checkbox" id="enableMultiChannel" name="enableMultiChannel">
+                                <label for="enableMultiChannel" style="margin-bottom: 0;">启用多渠道发送</label>
+                            </div>
+                            <div id="singleChannelSection">
+                                <select id="channel" name="channel" required>
+                                    <option value="">请选择通知渠道</option>
+                                </select>
+                            </div>
+                            <div id="multiChannelSection" style="display: none;">
+                                <div id="multiChannelList">
+                                    <!-- 动态生成多渠道选择 -->
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="addChannelSelection()" style="margin-top: 10px;">
+                                    ➕ 添加渠道
+                                </button>
+                            </div>
                         </div>
 
                         <div id="configFields" class="config-fields" style="display: none;">
-                            <!-- 动态生成配置字段 -->
+                            <!-- 单渠道模式：动态生成配置字段 -->
+                        </div>
+                        
+                        <div id="multiConfigFields" style="display: none;">
+                            <!-- 多渠道模式：动态生成多个配置区域 -->
                         </div>
 
                         <!-- 测试通知按钮 -->
@@ -177,7 +195,7 @@
                     <!-- 渠道管理 -->
                     <div class="channel-management">
                         <h3 style="margin-top: 30px; margin-bottom: 15px; color: var(--text-strong); font-size: 1.2rem;">我的通知渠道</h3>
-                        <button class="btn btn-sm btn-info" onclick="openChannelModal()">添加渠道</button>
+                        <button class="btn btn-sm btn-info" onclick="openChannelModal()">保存渠道</button>
                         <div id="userChannels" class="channel-list">
                             <!-- 动态生成用户渠道列表 -->
                         </div>

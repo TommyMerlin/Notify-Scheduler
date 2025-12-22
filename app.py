@@ -123,17 +123,29 @@ def create_task():
     """
     创建通知任务
 
-    请求体示例:
+    支持单渠道和多渠道两种模式：
+    
+    单渠道模式 (向后兼容):
     {
         "title": "测试通知",
         "content": "这是一条测试通知",
         "channel": "wecom_webhook",
+        "channel_config": {"webhook_url": "..."},
         "scheduled_time": "2024-12-01T10:00:00",
-        "channel_config": {
-            "webhook_url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
+        "is_recurring": false
+    }
+    
+    多渠道模式:
+    {
+        "title": "测试通知",
+        "content": "这是一条测试通知",
+        "channels": ["wecom_webhook", "pushplus"],
+        "channels_config": {
+            "wecom_webhook": {"webhook_url": "..."},
+            "pushplus": {"token": "..."}
         },
-        "is_recurring": false,
-        "cron_expression": null
+        "scheduled_time": "2024-12-01T10:00:00",
+        "is_recurring": false
     }
     """
     try:
@@ -143,11 +155,20 @@ def create_task():
         is_recurring = bool(data.get('is_recurring', False))
         cron_expression = data.get('cron_expression')
 
+        # 检测是多渠道模式还是单渠道模式
+        is_multi_channel = 'channels' in data
+        
         # 验证必填字段
-        required_fields = ['title', 'content', 'channel', 'channel_config']
+        required_fields = ['title', 'content']
+        if is_multi_channel:
+            required_fields.extend(['channels', 'channels_config'])
+        else:
+            required_fields.extend(['channel', 'channel_config'])
+        
         # 非重复任务必须提供 scheduled_time
         if not is_recurring:
             required_fields.append('scheduled_time')
+        
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'缺少必填字段: {field}'}), 400
@@ -172,25 +193,48 @@ def create_task():
             except ValueError:
                 return jsonify({'error': '时间格式错误，请使用 ISO 格式，如: 2024-12-01T10:00:00'}), 400
 
-        # 验证通知渠道
-        try:
-            channel = NotifyChannel(data['channel'])
-        except ValueError:
-            valid_channels = [c.value for c in NotifyChannel]
-            return jsonify({'error': f'无效的通知渠道，支持的渠道: {valid_channels}'}), 400
-
         # 创建任务
         with get_db() as db:
             task = NotifyTask(
                 user_id=request.current_user.id,
                 title=data['title'],
                 content=data['content'],
-                channel=channel,
                 scheduled_time=scheduled_time,
-                channel_config=json.dumps(data['channel_config'], ensure_ascii=False),
                 is_recurring=is_recurring,
                 cron_expression=cron_expression if is_recurring else None
             )
+            
+            if is_multi_channel:
+                # 多渠道模式
+                channels = data['channels']
+                channels_config = data['channels_config']
+                
+                # 验证所有渠道类型
+                if not isinstance(channels, list) or len(channels) == 0:
+                    return jsonify({'error': 'channels 必须是非空数组'}), 400
+                
+                valid_channels = [c.value for c in NotifyChannel]
+                for ch in channels:
+                    if ch not in valid_channels:
+                        return jsonify({'error': f'无效的通知渠道: {ch}，支持的渠道: {valid_channels}'}), 400
+                
+                # 验证每个渠道都有配置
+                for ch in channels:
+                    if ch not in channels_config:
+                        return jsonify({'error': f'渠道 {ch} 缺少配置信息'}), 400
+                
+                task.channels_json = json.dumps(channels, ensure_ascii=False)
+                task.channels_config_json = json.dumps(channels_config, ensure_ascii=False)
+            else:
+                # 单渠道模式（向后兼容）
+                try:
+                    channel = NotifyChannel(data['channel'])
+                except ValueError:
+                    valid_channels = [c.value for c in NotifyChannel]
+                    return jsonify({'error': f'无效的通知渠道，支持的渠道: {valid_channels}'}), 400
+                
+                task.channel = channel
+                task.channel_config = json.dumps(data['channel_config'], ensure_ascii=False)
 
             db.add(task)
             db.commit()
@@ -322,8 +366,9 @@ def update_task(task_id):
     """
     更新任务
 
-    可更新字段: title, content, scheduled_time, channel_config, status
+    可更新字段: title, content, scheduled_time, channel_config, channels_config, status
     支持重新启用已取消或已执行的任务，以及暂停/恢复重复任务
+    支持在单渠道和多渠道模式间切换
     """
     try:
         data = request.get_json()
@@ -386,12 +431,37 @@ def update_task(task_id):
                 except Exception as e:
                     return jsonify({'error': f'状态更新失败: {str(e)}'}), 400
 
-            # 更新字段
+            # 更新基本字段
             if 'title' in data:
                 task.title = data['title']
             if 'content' in data:
                 task.content = data['content']
-            if 'channel_config' in data:
+            
+            # 处理渠道配置更新（支持单渠道和多渠道模式）
+            if 'channels' in data and 'channels_config' in data:
+                # 更新为多渠道模式
+                channels = data['channels']
+                channels_config = data['channels_config']
+                
+                if not isinstance(channels, list) or len(channels) == 0:
+                    return jsonify({'error': 'channels 必须是非空数组'}), 400
+                
+                valid_channels = [c.value for c in NotifyChannel]
+                for ch in channels:
+                    if ch not in valid_channels:
+                        return jsonify({'error': f'无效的通知渠道: {ch}'}), 400
+                
+                for ch in channels:
+                    if ch not in channels_config:
+                        return jsonify({'error': f'渠道 {ch} 缺少配置信息'}), 400
+                
+                task.channels_json = json.dumps(channels, ensure_ascii=False)
+                task.channels_config_json = json.dumps(channels_config, ensure_ascii=False)
+                # 清空单渠道字段
+                task.channel = None
+                task.channel_config = None
+            elif 'channel_config' in data:
+                # 更新单渠道模式的配置
                 task.channel_config = json.dumps(data['channel_config'], ensure_ascii=False)
 
             # 处理时间更新
@@ -420,6 +490,8 @@ def update_task(task_id):
                 task.status = NotifyStatus.PENDING
                 task.sent_time = None
                 task.error_msg = None
+                # 清空多渠道发送结果
+                task.send_results = None
 
             db.commit()
 
