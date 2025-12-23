@@ -51,6 +51,38 @@
 └─────────────────┘
 ```
 
+## 快速开始
+
+### 方式一：使用 Docker
+
+```bash
+# 1. 构建并启动容器
+docker-compose up -d
+
+# 2. 查看日志
+docker-compose logs -f
+
+# 3. 停止服务
+docker-compose down
+```
+
+### 方式三：使用启动脚本
+
+```bash
+# 1. 克隆或下载项目到服务器
+cd /path/to/notify-scheduler
+
+# 2. 运行启动脚本（开发模式）
+./start.sh
+
+# 或者使用生产模式（Gunicorn）
+./start.sh prod
+```
+
+## Web 界面使用说明
+
+访问 `http://your-server:5000` 打开 Web 管理界面。
+
 ## 📂 项目文件说明
 
 ### 核心代码文件
@@ -91,61 +123,6 @@
 | `test_system.py`       | 系统测试脚本   | 测试人员 |
 | `config_examples.json` | 各渠道配置示例 | 配置人员 |
 
-## 快速开始
-
-### 方式一：使用启动脚本（推荐）
-
-```bash
-# 1. 克隆或下载项目到服务器
-cd /path/to/notify-scheduler
-
-# 2. 运行启动脚本（开发模式）
-./start.sh
-
-# 或者使用生产模式（Gunicorn）
-./start.sh prod
-```
-
-访问 `http://localhost:5000` 即可使用 Web 界面。
-
-### 方式二：手动安装
-
-```bash
-# 1. 创建虚拟环境
-python3 -m venv venv
-source venv/bin/activate
-
-# 2. 安装依赖
-pip install -r requirements.txt
-pip install gunicorn ANotify
-
-# 3. 初始化数据库
-python -c "from models import init_db; init_db()"
-
-# 4. 启动服务（开发模式）
-python app.py
-
-# 或使用 Gunicorn（生产模式）
-gunicorn -c gunicorn_config.py app:app
-```
-
-### 方式三：使用 Docker
-
-```bash
-# 1. 构建并启动容器
-docker-compose up -d
-
-# 2. 查看日志
-docker-compose logs -f
-
-# 3. 停止服务
-docker-compose down
-```
-
-## Web 界面使用说明
-
-访问 `http://your-server:5000` 打开 Web 管理界面。
-
 ### 创建通知任务
 
 1. 在左侧表单中填写通知信息：
@@ -174,105 +151,6 @@ docker-compose down
 - 每个渠道项支持 **编辑** 与 **删除** 操作：编辑时会弹出模态框，允许修改渠道名称、配置字段及是否设为默认（渠道类型不可变更以保证安全）。
 - 在创建任务时可从“选择已保存的渠道”下拉中快速选择，UI 已优化下拉样式以与表单一致，移动端也增加了触控友好性。
 
-## 生产环境部署
-
-### 使用 Systemd（推荐用于 Ubuntu/Debian）
-
-1. **复制项目到服务器**
-
-```bash
-sudo mkdir -p /var/www/notify-scheduler
-sudo cp -r * /var/www/notify-scheduler/
-cd /var/www/notify-scheduler
-```
-
-2. **安装依赖**
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-pip install gunicorn ANotify
-```
-
-3. **配置 Systemd 服务**
-
-```bash
-# 复制服务配置文件
-sudo cp notify-scheduler.service /etc/systemd/system/
-
-# 重载 systemd
-sudo systemctl daemon-reload
-
-# 启动服务
-sudo systemctl start notify-scheduler
-
-# 设置开机自启
-sudo systemctl enable notify-scheduler
-
-# 查看状态
-sudo systemctl status notify-scheduler
-```
-
-4. **配置 Nginx（可选但推荐）**
-
-```bash
-# 安装 Nginx
-sudo apt install nginx
-
-# 复制配置文件
-sudo cp nginx.conf /etc/nginx/sites-available/notify-scheduler
-sudo ln -s /etc/nginx/sites-available/notify-scheduler /etc/nginx/sites-enabled/
-
-# 修改配置中的域名
-sudo nano /etc/nginx/sites-available/notify-scheduler
-
-# 测试配置
-sudo nginx -t
-
-# 重启 Nginx
-sudo systemctl restart nginx
-```
-
-### 使用 Docker Compose
-
-```bash
-# 1. 启动服务
-docker-compose up -d
-
-# 2. 查看运行状态
-docker-compose ps
-
-# 3. 查看日志
-docker-compose logs -f notify-scheduler
-
-# 4. 重启服务
-docker-compose restart
-
-# 5. 停止服务
-docker-compose down
-```
-
-### 使用 Docker（单容器）
-
-```bash
-# 1. 构建镜像
-docker build -t notify-scheduler .
-
-# 2. 运行容器
-docker run -d \
-  --name notify-scheduler \
-  -p 5000:5000 \
-  -v $(pwd)/data:/app/data \
-  -v $(pwd)/logs:/app/logs \
-  notify-scheduler
-
-# 3. 查看日志
-docker logs -f notify-scheduler
-
-# 4. 停止容器
-docker stop notify-scheduler
-```
 
 ## API 接口文档
 
@@ -327,48 +205,8 @@ docker stop notify-scheduler
 | IYUU | `iyuu` | token (可选 `server_url`) |
 | 巴法云 | `bafayun` | token (可选 `server_url`) |
 
-详细配置示例请查看 `config_examples.json`。
 
-## 重复任务 Cron 表达式
-
-常用 Cron 表达式示例：
-- `0 9 * * *` - 每天早上9点
-- `0 */2 * * *` - 每2小时
-- `0 9 * * 1` - 每周一早上9点
-- `0 0 1 * *` - 每月1号零点
-- `*/30 * * * *` - 每30分钟
-
-## 运维管理
-
-### 查看日志
-
-```bash
-# Systemd 服务日志
-sudo journalctl -u notify-scheduler -f
-
-# Gunicorn 日志
-tail -f logs/access.log
-tail -f logs/error.log
-
-# Docker 日志
-docker-compose logs -f
-```
-
-### 重启服务
-
-```bash
-# Systemd
-sudo systemctl restart notify-scheduler
-
-# Docker
-docker-compose restart
-
-# 手动停止和启动
-./stop.sh
-./start.sh prod
-```
-
-### 数据备份
+## 数据备份
 
 ```bash
 # 备份数据库
@@ -377,49 +215,6 @@ cp notify_scheduler.db notify_scheduler.db.backup
 # 使用 cron 定期备份
 0 2 * * * cp /var/www/notify-scheduler/notify_scheduler.db /backup/notify_scheduler_$(date +\%Y\%m\%d).db
 ```
-
-## 安全建议
-
-1. **使用 HTTPS**: 在生产环境中配置 SSL 证书
-2. **设置防火墙**: 只开放必要的端口
-3. **定期更新**: 及时更新依赖包
-4. **备份数据**: 定期备份数据库文件
-5. **访问控制**: 配置 Nginx 基本认证或其他认证方式
-6. **日志监控**: 定期检查日志文件
-
-## 故障排查
-
-### 服务无法启动
-
-```bash
-# 检查端口占用
-sudo lsof -i :5000
-
-# 检查日志
-tail -f logs/error.log
-sudo journalctl -u notify-scheduler -n 50
-```
-
-### 通知发送失败
-
-1. 检查任务详情中的错误信息
-2. 验证渠道配置是否正确
-3. 检查网络连接
-4. 查看应用日志
-
-### 数据库错误
-
-```bash
-# 重新初始化数据库（会清空数据）
-python -c "from models import Base, engine; Base.metadata.drop_all(engine); Base.metadata.create_all(engine)"
-```
-
-## 性能优化
-
-1. **调整 Gunicorn workers 数量**: 修改 `gunicorn_config.py`
-2. **使用数据库连接池**: 默认已配置 SQLAlchemy 连接池
-3. **启用 Nginx 缓存**: 配置静态资源缓存
-4. **定期清理旧任务**: 删除过期的已完成任务
 
 ## 常见问题
 
@@ -442,14 +237,14 @@ A: 在 `notifier.py` 中添加新的发送方法，并在 `models.py` 中添加�
 ## 开发计划
 
 ### 已完成
-- [x] Web 管理界面
 - [x] 日历视图支持点击任务进行编辑
 - [x] 移动端响应式适配与触摸优化
 - [x] 拖拽调整任务时间（日历视图）
 - [x] 日历订阅及同步功能
 - [x] 支持多渠道消息推送
+- [x] 重复任务暂停功能
 - [ ] 失败自动重试
-- [ ] 重复任务暂停功能
+- [ ] 脚本运行
 - [ ] 数据导入/导出
 
 ## License
