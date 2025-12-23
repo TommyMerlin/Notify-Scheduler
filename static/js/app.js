@@ -165,6 +165,127 @@ function logout() {
     checkAuthStatus();
 }
 
+// 导出数据
+async function exportData() {
+    try {
+        const response = await fetch(`${API_BASE}/export`, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || '导出失败');
+        }
+
+        // 获取文件名（从 Content-Disposition 头或生成）
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'notify-scheduler-export.json';
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename=(.+)/);
+            if (filenameMatch) {
+                filename = filenameMatch[1];
+            }
+        }
+
+        // 下载文件
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        showNotification('数据导出成功！', 'success');
+    } catch (error) {
+        console.error('Export error:', error);
+        showNotification('导出失败: ' + error.message, 'error');
+    }
+}
+
+// 导入数据
+async function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 验证文件类型
+    if (!file.name.endsWith('.json')) {
+        showNotification('请选择 JSON 文件', 'error');
+        event.target.value = ''; // 清空文件选择
+        return;
+    }
+
+    try {
+        // 读取文件内容
+        const fileContent = await file.text();
+        const importData = JSON.parse(fileContent);
+
+        // 验证数据格式
+        if (!importData.version || !importData.export_date) {
+            throw new Error('无效的导入文件格式');
+        }
+
+        // 确认导入
+        const confirmMsg = `导出时间: ${new Date(importData.export_date).toLocaleString()}\n\n` +
+                          `任务: ${importData.tasks?.length || 0} 条\n` +
+                          `通道: ${importData.user_channels?.length || 0} 个\n` +
+                          `日历: ${importData.external_calendars?.length || 0} 个\n\n` +
+                          `导入模式：合并模式（跳过重复项）`;
+        
+        const confirmed = await showConfirmDialog({
+            title: '确认导入数据',
+            message: confirmMsg,
+            confirmText: '导入',
+            cancelText: '取消'
+        });
+        
+        if (!confirmed) {
+            event.target.value = '';
+            return;
+        }
+
+        // 发送导入请求
+        const response = await fetch(`${API_BASE}/import`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: fileContent
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || '导入失败');
+        }
+
+        const result = await response.json();
+        
+        // 显示导入统计
+        const stats = result.stats || {};
+        const statsMsg = `导入完成！\n\n` +
+                        `任务: 导入 ${stats.tasks_imported || 0} 条, 跳过 ${stats.tasks_skipped || 0} 条\n` +
+                        `通道: 导入 ${stats.channels_imported || 0} 个, 跳过 ${stats.channels_skipped || 0} 个\n` +
+                        `日历: 导入 ${stats.calendars_imported || 0} 个, 跳过 ${stats.calendars_skipped || 0} 个`;
+        
+        showNotification(statsMsg, 'success');
+
+        // 刷新页面数据
+        loadTasks();
+        loadUserChannels();
+
+    } catch (error) {
+        console.error('Import error:', error);
+        showNotification('导入失败: ' + error.message, 'error');
+    } finally {
+        // 清空文件选择，允许重复选择同一文件
+        event.target.value = '';
+    }
+}
+
 // 初始化 SSE
 function initSSE() {
     if (eventSource) {
@@ -484,7 +605,14 @@ async function handleChannelFormSubmit(e) {
 
 // 删除用户渠道
 async function deleteUserChannel(channelId) {
-    if (!confirm('确定要删除这个渠道配置吗？')) {
+    const confirmed = await showConfirmDialog({
+        title: '删除渠道配置',
+        message: '确定要删除这个渠道配置吗？删除后无法恢复。',
+        confirmText: '删除',
+        cancelText: '取消'
+    });
+    
+    if (!confirmed) {
         return;
     }
 
@@ -1994,8 +2122,15 @@ async function fetchCalendarToken(regenerate = false) {
     }
 }
 
-function generateCalendarToken() {
-    if (confirm('重置链接后，旧的订阅链接将失效，确定要重置吗？')) {
+async function generateCalendarToken() {
+    const confirmed = await showConfirmDialog({
+        title: '重置订阅链接',
+        message: '重置链接后，旧的订阅链接将失效，确定要重置吗？',
+        confirmText: '重置',
+        cancelText: '取消'
+    });
+    
+    if (confirmed) {
         fetchCalendarToken(true);
     }
 }
@@ -2091,7 +2226,14 @@ async function handleAddExternalCalendar(e) {
 }
 
 async function deleteExternalCalendar(id) {
-    if (!confirm('确定要取消订阅此日历吗？已导入的任务不会被删除。')) return;
+    const confirmed = await showConfirmDialog({
+        title: '取消订阅日历',
+        message: '确定要取消订阅此日历吗？已导入的任务不会被删除。',
+        confirmText: '取消订阅',
+        cancelText: '保留'
+    });
+    
+    if (!confirmed) return;
     
     try {
         const response = await fetch(`${API_BASE}/calendar/external/${id}`, {

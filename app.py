@@ -4,6 +4,7 @@ from datetime import datetime
 from models import init_db, get_db, NotifyTask, NotifyChannel, NotifyStatus, User, UserChannel, ExternalCalendar
 from scheduler import scheduler, get_cron_trigger, event_manager
 from auth import login_required, admin_required, user_login, user_register, update_user_profile
+from encryption import encrypt_sensitive_fields, decrypt_sensitive_fields
 import json
 import os
 import jwt
@@ -1077,6 +1078,321 @@ def check_version_update():
     except Exception as e:
         app.logger.error(f'Version check failed: {str(e)}')
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/export', methods=['GET'])
+@login_required
+def export_data():
+    """
+    导出用户数据为 JSON 格式
+    Export user data as JSON with encrypted sensitive fields
+    """
+    try:
+        current_user = request.current_user
+        secret_key = app.config['SECRET_KEY']
+        
+        with get_db() as db:
+            # 导出任务
+            tasks = db.query(NotifyTask).filter_by(user_id=current_user.id).all()
+            tasks_data = []
+            for task in tasks:
+                task_dict = {
+                    'title': task.title,
+                    'content': task.content,
+                    'channel': task.channel.value if task.channel else None,
+                    'scheduled_time': task.scheduled_time.isoformat() if task.scheduled_time else None,
+                    'channel_config': task.channel_config,
+                    'channels': task.channels_json,
+                    'channel_configs': task.channels_config_json,
+                    'status': task.status.value,
+                    'is_recurring': task.is_recurring,
+                    'cron_expression': task.cron_expression,
+                    'created_at': task.created_at.isoformat() if task.created_at else None,
+                    'updated_at': task.updated_at.isoformat() if task.updated_at else None,
+                }
+                
+                # 加密单通道配置
+                if task_dict['channel_config']:
+                    try:
+                        config_dict = json.loads(task_dict['channel_config'])
+                        encrypted_config = encrypt_sensitive_fields(config_dict, secret_key)
+                        task_dict['channel_config'] = json.dumps(encrypted_config)
+                    except:
+                        pass
+                
+                # 加密多通道配置
+                if task_dict['channel_configs']:
+                    try:
+                        configs_dict = json.loads(task_dict['channel_configs'])
+                        encrypted_configs = {}
+                        for channel, config in configs_dict.items():
+                            encrypted_configs[channel] = encrypt_sensitive_fields(config, secret_key)
+                        task_dict['channel_configs'] = json.dumps(encrypted_configs)
+                    except:
+                        pass
+                
+                tasks_data.append(task_dict)
+            
+            # 导出通道配置
+            user_channels = db.query(UserChannel).filter_by(user_id=current_user.id).all()
+            channels_data = []
+            for channel in user_channels:
+                channel_dict = {
+                    'channel_name': channel.channel_name,
+                    'channel_type': channel.channel_type.value,
+                    'channel_config': channel.channel_config,
+                    'is_default': channel.is_default,
+                    'created_at': channel.created_at.isoformat() if channel.created_at else None,
+                }
+                
+                # 加密通道配置
+                if channel_dict['channel_config']:
+                    try:
+                        config_dict = json.loads(channel_dict['channel_config'])
+                        encrypted_config = encrypt_sensitive_fields(config_dict, secret_key)
+                        channel_dict['channel_config'] = json.dumps(encrypted_config)
+                    except:
+                        pass
+                
+                channels_data.append(channel_dict)
+            
+            # 导出外部日历
+            external_calendars = db.query(ExternalCalendar).filter_by(user_id=current_user.id).all()
+            calendars_data = []
+            for calendar in external_calendars:
+                calendar_dict = {
+                    'name': calendar.name,
+                    'url': calendar.url,
+                    'is_active': calendar.is_active,
+                    'default_channel_id': None,  # 不导出内部 ID
+                }
+                
+                # 如果有默认通道，尝试找到对应的通道名称
+                if calendar.default_channel_id:
+                    default_channel = db.query(UserChannel).filter_by(
+                        id=calendar.default_channel_id,
+                        user_id=current_user.id
+                    ).first()
+                    if default_channel:
+                        calendar_dict['default_channel_name'] = default_channel.channel_name
+                
+                calendars_data.append(calendar_dict)
+        
+        # 构建导出数据（在 with 块外，使用已收集的数据）
+        export_payload = {
+            'version': '1.0',
+            'export_date': datetime.now().isoformat(),
+            'user': {
+                'username': current_user.username,
+                'email': current_user.email,
+            },
+            'tasks': tasks_data,
+            'user_channels': channels_data,
+            'external_calendars': calendars_data,
+        }
+        
+        # 设置响应头，触发下载
+        filename = f'notify-scheduler-export-{datetime.now().strftime("%Y%m%d-%H%M%S")}.json'
+        response = make_response(jsonify(export_payload))
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        response.headers['Content-Type'] = 'application/json'
+        
+        return response
+        
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        app.logger.error(f'Export failed: {str(e)}\n{error_detail}')
+        return jsonify({'error': f'导出失败: {str(e)}'}), 500
+
+
+@app.route('/api/import', methods=['POST'])
+@login_required
+def import_data():
+    """
+    导入用户数据（合并模式 - 跳过重复）
+    Import user data with merge mode (skip duplicates)
+    """
+    try:
+        current_user = request.current_user
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '无效的导入数据'}), 400
+        
+        # 验证数据版本
+        if data.get('version') != '1.0':
+            return jsonify({'error': '不支持的数据版本'}), 400
+        
+        secret_key = app.config['SECRET_KEY']
+        
+        stats = {
+            'tasks_imported': 0,
+            'tasks_skipped': 0,
+            'channels_imported': 0,
+            'channels_skipped': 0,
+            'calendars_imported': 0,
+            'calendars_skipped': 0,
+        }
+        
+        with get_db() as db:
+            # 导入通道配置（先导入，因为任务可能依赖它们）
+            if 'user_channels' in data:
+                for channel_data in data['user_channels']:
+                    # 检查是否已存在同名通道
+                    existing = db.query(UserChannel).filter_by(
+                        user_id=current_user.id,
+                        channel_name=channel_data['channel_name']
+                    ).first()
+                    
+                    if existing:
+                        stats['channels_skipped'] += 1
+                        continue
+                    
+                    # 解密配置
+                    channel_config = channel_data.get('channel_config')
+                    if channel_config:
+                        try:
+                            config_dict = json.loads(channel_config)
+                            decrypted_config = decrypt_sensitive_fields(config_dict, secret_key)
+                            channel_config = json.dumps(decrypted_config)
+                        except:
+                            pass
+                    
+                    # 创建新通道
+                    new_channel = UserChannel(
+                        user_id=current_user.id,
+                        channel_name=channel_data['channel_name'],
+                        channel_type=NotifyChannel(channel_data['channel_type']),
+                        channel_config=channel_config,
+                        is_default=channel_data.get('is_default', False),
+                    )
+                    db.add(new_channel)
+                    stats['channels_imported'] += 1
+            
+            db.commit()
+            
+            # 导入任务
+            if 'tasks' in data:
+                for task_data in data['tasks']:
+                    # 检查重复：相同标题和计划时间
+                    scheduled_time = None
+                    if task_data.get('scheduled_time'):
+                        try:
+                            scheduled_time = datetime.fromisoformat(task_data['scheduled_time'])
+                        except:
+                            pass
+                    
+                    # 对于定时任务，检查标题+时间；对于周期任务，只检查标题+cron
+                    if task_data.get('is_recurring'):
+                        existing = db.query(NotifyTask).filter_by(
+                            user_id=current_user.id,
+                            title=task_data['title'],
+                            cron_expression=task_data.get('cron_expression')
+                        ).first()
+                    else:
+                        existing = db.query(NotifyTask).filter_by(
+                            user_id=current_user.id,
+                            title=task_data['title'],
+                            scheduled_time=scheduled_time
+                        ).first()
+                    
+                    if existing:
+                        stats['tasks_skipped'] += 1
+                        continue
+                    
+                    # 解密通道配置
+                    channel_config = task_data.get('channel_config')
+                    if channel_config:
+                        try:
+                            config_dict = json.loads(channel_config)
+                            decrypted_config = decrypt_sensitive_fields(config_dict, secret_key)
+                            channel_config = json.dumps(decrypted_config)
+                        except:
+                            pass
+                    
+                    # 解密多通道配置
+                    channel_configs = task_data.get('channel_configs')
+                    if channel_configs:
+                        try:
+                            configs_dict = json.loads(channel_configs)
+                            decrypted_configs = {}
+                            for channel, config in configs_dict.items():
+                                decrypted_configs[channel] = decrypt_sensitive_fields(config, secret_key)
+                            channel_configs = json.dumps(decrypted_configs)
+                        except:
+                            pass
+                    
+                    # 创建新任务
+                    new_task = NotifyTask(
+                        user_id=current_user.id,
+                        title=task_data['title'],
+                        content=task_data.get('content', ''),
+                        channel=NotifyChannel(task_data['channel']) if task_data.get('channel') else None,
+                        scheduled_time=scheduled_time,
+                        channel_config=channel_config,
+                        channels_json=task_data.get('channels'),
+                        channels_config_json=channel_configs,
+                        status=NotifyStatus(task_data.get('status', 'pending')),
+                        is_recurring=task_data.get('is_recurring', False),
+                        cron_expression=task_data.get('cron_expression'),
+                    )
+                    db.add(new_task)
+                    stats['tasks_imported'] += 1
+                    
+                    # 如果是待发送的任务，加入调度器
+                    if new_task.status == NotifyStatus.PENDING:
+                        db.commit()  # 先提交获取 ID
+                        db.refresh(new_task)  # 刷新对象获取最新数据
+                        scheduler.add_task(new_task)
+            
+            db.commit()
+            
+            # 导入外部日历
+            if 'external_calendars' in data:
+                for calendar_data in data['external_calendars']:
+                    # 检查是否已存在同名日历
+                    existing = db.query(ExternalCalendar).filter_by(
+                        user_id=current_user.id,
+                        name=calendar_data['name']
+                    ).first()
+                    
+                    if existing:
+                        stats['calendars_skipped'] += 1
+                        continue
+                    
+                    # 查找默认通道
+                    default_channel_id = None
+                    if calendar_data.get('default_channel_name'):
+                        default_channel = db.query(UserChannel).filter_by(
+                            user_id=current_user.id,
+                            channel_name=calendar_data['default_channel_name']
+                        ).first()
+                        if default_channel:
+                            default_channel_id = default_channel.id
+                    
+                    # 创建新日历
+                    new_calendar = ExternalCalendar(
+                        user_id=current_user.id,
+                        name=calendar_data['name'],
+                        url=calendar_data['url'],
+                        default_channel_id=default_channel_id,
+                        is_active=calendar_data.get('is_active', True),
+                    )
+                    db.add(new_calendar)
+                    stats['calendars_imported'] += 1
+            
+            db.commit()
+        
+        return jsonify({
+            'message': '导入成功',
+            'stats': stats
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        app.logger.error(f'Import failed: {str(e)}\n{error_detail}')
+        return jsonify({'error': f'导入失败: {str(e)}'}), 500
 
 
 if __name__ == '__main__':
