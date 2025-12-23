@@ -7,6 +7,8 @@ let eventSource = null;
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
     checkAuthStatus();
+    loadVersion();
+    checkForUpdates();
 });
 
 // 检查认证状态
@@ -2372,4 +2374,85 @@ function populateMultiChannelConfig(channelId, savedChannelId, fields) {
             input.value = config[field];
         }
     });
+}
+
+// 加载版本信息
+async function loadVersion() {
+    try {
+        const response = await fetch(`${API_BASE}/version`);
+        if (response.ok) {
+            const data = await response.json();
+            const versionInfo = document.getElementById('version-info');
+            if (versionInfo && data.version) {
+                versionInfo.textContent = `v${data.version}`;
+                // 添加点击事件跳转到 GitHub releases
+                versionInfo.style.cursor = 'pointer';
+                versionInfo.style.pointerEvents = 'auto';
+                versionInfo.onclick = function() {
+                    window.open('https://github.com/TommyMerlin/Notify-Scheduler/releases', '_blank');
+                };
+            }
+        }
+    } catch (error) {
+        console.log('Failed to load version:', error);
+    }
+}
+
+// 检查版本更新
+async function checkForUpdates() {
+    try {
+        // 检查是否已经关闭过横幅
+        const dismissedVersion = sessionStorage.getItem('updateBannerDismissed');
+        
+        const response = await fetch(`${API_BASE}/version/check`);
+        if (response.ok) {
+            const data = await response.json();
+            
+            // 如果有更新且用户未关闭此版本的横幅
+            if (data.update_available && dismissedVersion !== data.latest_version) {
+                showUpdateBanner(data);
+                
+                // 在版本号旁边添加更新徽章
+                const versionInfo = document.getElementById('version-info');
+                if (versionInfo && !versionInfo.querySelector('.update-badge')) {
+                    const badge = document.createElement('span');
+                    badge.className = 'update-badge';
+                    badge.textContent = '•';
+                    badge.title = `新版本 v${data.latest_version} 可用`;
+                    versionInfo.appendChild(badge);
+                }
+            }
+        }
+    } catch (error) {
+        console.log('Update check failed:', error);
+    }
+}
+
+// 显示更新横幅
+function showUpdateBanner(data) {
+    const banner = document.getElementById('update-banner');
+    if (!banner) return;
+    
+    banner.innerHTML = `
+        <div class="update-banner-content">
+            <span class="update-icon">🎉</span>
+            <span class="update-text">
+                新版本 <strong>v${data.latest_version}</strong> 可用！当前版本: v${data.current_version}
+            </span>
+            <a href="${data.release_url}" target="_blank" class="update-link">查看更新</a>
+            <button class="update-close" onclick="dismissUpdateBanner('${data.latest_version}')" title="关闭">×</button>
+        </div>
+    `;
+    
+    banner.classList.remove('hidden');
+}
+
+// 关闭更新横幅
+function dismissUpdateBanner(version) {
+    const banner = document.getElementById('update-banner');
+    if (banner) {
+        banner.classList.add('hidden');
+        // 记住用户已关闭此版本的横幅
+        sessionStorage.setItem('updateBannerDismissed', version);
+    }
 }

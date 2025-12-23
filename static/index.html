@@ -69,6 +69,9 @@
 
     <!-- 主应用界面 -->
     <div id="mainApp" style="display: none;">
+        <!-- 版本更新横幅 -->
+        <div id="update-banner" class="update-banner hidden"></div>
+        
         <div class="container">
             <header>
                 <div class="brand">
@@ -615,6 +618,7 @@
             document.write('<script src="/static/js/app.js?v=' + v + '"><\/script>');
             document.write('<script src="/static/js/calendar.js?v=' + v + '"><\/script>');
         })();
-    </script>
-</body>
+    </script>    
+    <!-- 版本信息显示 -->
+    <div id="version-info" class="version-display"></div></body>
 </html>

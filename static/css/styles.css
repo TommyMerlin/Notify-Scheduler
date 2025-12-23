@@ -60,6 +60,24 @@ body::after {
     background: radial-gradient(circle, rgba(99, 102, 241, 0.35), transparent 60%);
 }
 
+/* 版本信息显示 */
+.version-display {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    z-index: 100;
+    padding: 4px 12px;
+    user-select: none;
+    transition: color 0.3s;
+}
+
+.version-display:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
 .container {
     max-width: 1400px;
     margin: 0 auto;
@@ -1451,4 +1469,105 @@ header p {
     background: rgba(231, 76, 60, 0.15);
     color: #e74c3c;
     border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+/* 版本更新横幅 */
+.update-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1001;
+    background: linear-gradient(120deg, #3b82f6, #2563eb);
+    color: white;
+    padding: 12px 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideDown 0.4s ease-out;
+}
+
+.update-banner.hidden {
+    display: none;
+}
+
+.update-banner-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+}
+
+.update-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.update-text {
+    flex: 1;
+    font-weight: 500;
+}
+
+.update-text strong {
+    font-weight: 700;
+}
+
+.update-link {
+    color: white;
+    text-decoration: underline;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.update-link:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.update-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 8px;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+}
+
+.update-close:hover {
+    opacity: 1;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 版本更新徽章 */
+.update-badge {
+    display: inline-block;
+    margin-left: 6px;
+    color: #ef4444;
+    font-size: 16px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
 }

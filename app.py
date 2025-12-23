@@ -1000,6 +1000,85 @@ def sync_external_calendar_endpoint(cal_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+# 版本信息API
+@app.route('/api/version', methods=['GET'])
+def get_version():
+    """获取当前版本号"""
+    try:
+        import re
+        with open('version.yml', 'r', encoding='utf-8') as f:
+            content = f.read()
+            match = re.search(r'version:\s*([\d\.]+)', content)
+            if match:
+                version = match.group(1)
+            else:
+                version = '0.0.0'
+        return jsonify({'version': version}), 200
+    except Exception as e:
+        return jsonify({'version': '0.0.0'}), 200
+
+
+@app.route('/api/version/check', methods=['GET'])
+def check_version_update():
+    """检查 GitHub 最新版本"""
+    try:
+        import requests
+        import re
+        
+        # 获取当前版本
+        current_version = '0.0.0'
+        try:
+            with open('version.yml', 'r', encoding='utf-8') as f:
+                content = f.read()
+                match = re.search(r'version:\s*([\d\.]+)', content)
+                if match:
+                    current_version = match.group(1)
+        except:
+            pass
+        
+        # 调用 GitHub API 获取最新 release
+        response = requests.get(
+            'https://api.github.com/repos/TommyMerlin/Notify-Scheduler/releases/latest',
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            latest = response.json()
+            latest_version = latest.get('tag_name', '').lstrip('v')
+            
+            # 版本对比
+            def compare_versions(v1, v2):
+                """比较两个版本号，v1 < v2 返回 True"""
+                try:
+                    parts1 = [int(x) for x in v1.split('.')]
+                    parts2 = [int(x) for x in v2.split('.')]
+                    # 补齐长度
+                    while len(parts1) < len(parts2):
+                        parts1.append(0)
+                    while len(parts2) < len(parts1):
+                        parts2.append(0)
+                    return parts1 < parts2
+                except:
+                    return False
+            
+            update_available = compare_versions(current_version, latest_version)
+            
+            return jsonify({
+                'current_version': current_version,
+                'latest_version': latest_version,
+                'update_available': update_available,
+                'release_url': latest.get('html_url', ''),
+                'release_notes': latest.get('body', '')
+            }), 200
+        else:
+            return jsonify({'error': 'Failed to fetch release info'}), 500
+            
+    except Exception as e:
+        app.logger.error(f'Version check failed: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     try:
         app.run(host='0.0.0.0', port=8080, debug=True)
