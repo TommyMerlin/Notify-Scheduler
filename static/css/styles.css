@@ -32,7 +32,7 @@ body {
                 linear-gradient(135deg, var(--bg-accent), var(--bg-accent-2));
     color: var(--text-strong);
     min-height: 100vh;
-    padding: 40px 20px 60px;
+    padding: 40px 20px 20px;
     position: relative;
     overflow-x: hidden;
 }

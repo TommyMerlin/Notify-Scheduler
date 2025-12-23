@@ -622,7 +622,12 @@
             document.write('<script src="/static/js/calendar.js?v=' + v + '"><\/script>');
         })();
     </script>    
-    <!-- 版本信息显示 -->
-    <div id="version-info" class="version-display"></div>
+    <!-- 底部信息显示 -->
+    <div style="text-align: center; padding: 10px 0 2px; font-size: 14px; color: rgba(255, 255, 255, 0.5); display: flex; justify-content: center; align-items: center; gap: 4px; white-space: nowrap;">
+        <span>
+            Powered by <a href="https://github.com/TommyMerlin/Notify-Scheduler" target="_blank" style="color: var(--primary); text-decoration: none; font-weight: 500;">Notify-Scheduler</a>
+        </span>
+        <span id="version-info"></span>
+    </div>
 </body>
 </html>
