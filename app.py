@@ -1182,10 +1182,6 @@ def export_data():
         export_payload = {
             'version': '1.0',
             'export_date': datetime.now().isoformat(),
-            'user': {
-                'username': current_user.username,
-                'email': current_user.email,
-            },
             'tasks': tasks_data,
             'user_channels': channels_data,
             'external_calendars': calendars_data,
