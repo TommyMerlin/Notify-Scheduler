@@ -161,7 +161,7 @@ header p {
 }
 
 .datetime-display {
-    font-family: 'Space Grotesk', monospace;
+    font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
     font-weight: 600;
     font-size: 0.95rem;
     color: #5df2c8;
@@ -173,15 +173,19 @@ header p {
     align-items: center;
     gap: 8px;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .datetime-display .date-part {
     color: rgba(248, 250, 252, 0.9);
+    font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
 }
 
 .datetime-display .time-part {
     color: #5df2c8;
     font-weight: 700;
+    font-family: 'Courier New', 'Consolas', 'Monaco', monospace;
+    font-variant-numeric: tabular-nums;
 }
 
 #exportDataBtn,
