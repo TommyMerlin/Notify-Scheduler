@@ -273,6 +273,17 @@
 			grid.appendChild(row);
 		}
 
+		// 自动展开当前日期的任务列表
+		setTimeout(() => {
+			const todayCell = grid.querySelector('.calendar-day.today');
+			if (todayCell) {
+				todayCell.classList.add('selected');
+				const iso = todayCell.dataset.date;
+				const list = map[iso] || [];
+				showDayList(iso, list);
+			}
+		}, 100);
+
 		function showDayList(iso, list) {
 			if (!dayPanel) return;
 			dayPanel.innerHTML = '';
