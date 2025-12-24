@@ -1133,9 +1133,10 @@ async function submitTaskForm(e) {
     }
 
     const scheduledTimeValue = formData.get('scheduledTime');
+    const contentValue = formData.get('content') || '';
     const taskData = {
         title: formData.get('title'),
-        content: formData.get('content'),
+        content: contentValue.trim(),
         // 重复任务不提交 scheduled_time，由后端根据 cron_expression 计算
         scheduled_time: isRecurring ? undefined : (scheduledTimeValue ? (scheduledTimeValue.length === 16 ? `${scheduledTimeValue}:00` : scheduledTimeValue) : null),
         is_recurring: isRecurring,
@@ -1609,9 +1610,10 @@ async function handleEditTaskSubmit(e) {
     if (channelSelect.disabled) {
         // 多渠道任务：只更新标题、内容和时间
         const scheduledTimeValue = formData.get('scheduledTime');
+        const contentValue = formData.get('content') || '';
         const taskData = {
             title: formData.get('title'),
-            content: formData.get('content'),
+            content: contentValue.trim(),
             scheduled_time: scheduledTimeValue ? `${scheduledTimeValue}:00` : null
         };
 
@@ -1674,9 +1676,10 @@ async function handleEditTaskSubmit(e) {
 
     // 构建任务数据
     const scheduledTimeValue = formData.get('scheduledTime');
+    const contentValue = formData.get('content') || '';
     const taskData = {
         title: formData.get('title'),
-        content: formData.get('content'),
+        content: contentValue.trim(),
         channel: channelType,
         scheduled_time: scheduledTimeValue ? `${scheduledTimeValue}:00` : null,
         channel_config: channelConfig

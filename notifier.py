@@ -96,7 +96,7 @@ class NotificationSender:
             agentid=config['agentid']
         )
         
-        message = f"{title}\n{content}"
+        message = title if not content or not content.strip() else f"{title}\n{content}"
         result = wn.send_msg(message)
         return True
 
@@ -106,7 +106,7 @@ class NotificationSender:
         from ANotify import Nwecom
         
         wn_webhook = Nwecom.WxWebhookNotify(config['webhook_url'])
-        message = f"{title}\n{content}"
+        message = title if not content or not content.strip() else f"{title}\n{content}"
         result = wn_webhook.send_msg(message)
         return True
 
@@ -121,7 +121,7 @@ class NotificationSender:
         )
         
         receiver_type = getattr(Nfeishu.ReceiverType, config['receiver_type'])
-        message = f"{title}\n\n{content}"
+        message = title if not content or not content.strip() else f"{title}\n\n{content}"
         result = feishu.send_msg(receiver_type, config['receiver_id'], message)
         return True
 
@@ -131,7 +131,7 @@ class NotificationSender:
         from ANotify import Nfeishu
         
         feishu_webhook = Nfeishu.FeishuWebhookNotify(config['webhook_url'])
-        message = f"{title}\n\n{content}"
+        message = title if not content or not content.strip() else f"{title}\n\n{content}"
         result = feishu_webhook.send_msg(message)
         return True
 
@@ -141,7 +141,7 @@ class NotificationSender:
         from ANotify import Ndingtalk
         
         dingtalk_webhook = Ndingtalk.DingtalkWebhookNotify(config['webhook_url'])
-        message = f"{title}\n\n{content}"
+        message = title if not content or not content.strip() else f"{title}\n\n{content}"
         result = dingtalk_webhook.send_msg(message)
         return True
 
