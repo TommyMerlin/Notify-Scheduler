@@ -278,6 +278,31 @@
         </div>
     </div>
 
+    <!-- 执行日志模态框 -->
+    <div id="logsModal" class="modal">
+        <div class="modal-content" style="max-width: 900px; max-height: 80vh;">
+            <span class="close" onclick="closeLogsModal()">&times;</span>
+            <h2>任务执行日志</h2>
+            <div id="logsTaskInfo" style="margin-bottom: 15px; padding: 10px; background: var(--bg-card); border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong id="logsTaskTitle"></strong>
+                        <span id="logsTaskId" style="color: var(--text-secondary); margin-left: 8px;"></span>
+                    </div>
+                    <span id="logsTaskStatus" class="status-badge"></span>
+                </div>
+            </div>
+            <div id="logsContent" style="max-height: 500px; overflow-y: auto;">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>加载日志中...</p>
+                </div>
+            </div>
+            <div id="logsPagination" style="margin-top: 15px; display: flex; justify-content: center; gap: 10px;">
+            </div>
+        </div>
+    </div>
+
     <!-- 渠道配置模态框 -->
     <div id="channelModal" class="modal">
         <div class="modal-content">

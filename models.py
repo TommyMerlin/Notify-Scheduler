@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean, Enum, ForeignKey, text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, Boolean, Enum, ForeignKey, text, Index, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from contextlib import contextmanager
@@ -246,6 +246,123 @@ class NotifyTask(Base):
             result['send_results'] = send_results
         
         return result
+
+
+class TaskExecutionLog(Base):
+    """任务执行日志"""
+    __tablename__ = 'task_execution_logs'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(Integer, ForeignKey('notify_tasks.id'), nullable=False, comment="任务ID")
+    job_id = Column(String(100), nullable=False, comment="APScheduler Job ID")
+    
+    # 执行信息
+    execution_start = Column(DateTime, nullable=False, comment="执行开始时间")
+    execution_end = Column(DateTime, nullable=True, comment="执行结束时间")
+    execution_duration = Column(Float, nullable=True, comment="执行时长（秒）")
+    
+    # 状态与结果
+    status = Column(Enum('started', 'success', 'failed', 'skipped', name='execution_status'), nullable=False, comment="执行状态")
+    result_summary = Column(Text, nullable=True, comment="结果摘要")
+    error_message = Column(Text, nullable=True, comment="错误信息")
+    error_traceback = Column(Text, nullable=True, comment="错误堆栈")
+    
+    # 多渠道发送结果
+    channel_results = Column(Text, nullable=True, comment="各渠道发送结果（JSON）")
+    success_count = Column(Integer, default=0, comment="成功渠道数")
+    failed_count = Column(Integer, default=0, comment="失败渠道数")
+    
+    # 执行环境
+    worker_id = Column(String(50), nullable=True, comment="执行的worker进程ID")
+    hostname = Column(String(100), nullable=True, comment="执行的主机名")
+    
+    # 重复检测
+    is_duplicate = Column(Boolean, default=False, comment="是否为重复执行")
+    duplicate_check_key = Column(String(200), nullable=True, comment="重复检测键")
+    
+    created_at = Column(DateTime, default=datetime.now, comment="记录创建时间")
+    
+    # 关联关系
+    task = relationship("NotifyTask", backref="execution_logs")
+    
+    # 索引
+    __table_args__ = (
+        Index('idx_task_execution', 'task_id', 'execution_start'),
+        Index('idx_job_execution', 'job_id', 'execution_start'),
+        Index('idx_duplicate_check', 'duplicate_check_key', 'execution_start'),
+    )
+    
+    def to_dict(self):
+        """转换为字典"""
+        result = {
+            'id': self.id,
+            'task_id': self.task_id,
+            'job_id': self.job_id,
+            'execution_start': self.execution_start.isoformat() if self.execution_start else None,
+            'execution_end': self.execution_end.isoformat() if self.execution_end else None,
+            'execution_duration': self.execution_duration,
+            'status': self.status,
+            'result_summary': self.result_summary,
+            'error_message': self.error_message,
+            'success_count': self.success_count,
+            'failed_count': self.failed_count,
+            'worker_id': self.worker_id,
+            'hostname': self.hostname,
+            'is_duplicate': self.is_duplicate,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+        
+        # 解析 channel_results
+        if self.channel_results:
+            try:
+                result['channel_results'] = json.loads(self.channel_results)
+            except:
+                pass
+        
+        return result
+
+
+class AlertRule(Base):
+    """告警规则"""
+    __tablename__ = 'alert_rules'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    
+    rule_type = Column(Enum('duplicate_execution', 'execution_failure', 'long_running', 'high_failure_rate', name='alert_rule_type'), 
+                      nullable=False, comment="规则类型")
+    
+    # 规则参数（JSON）
+    rule_params = Column(Text, nullable=False, comment="规则参数")
+    # 示例：{"time_window": 300, "threshold": 2} - 5分钟内重复2次
+    
+    # 告警渠道
+    alert_channel_id = Column(Integer, ForeignKey('user_channels.id'), nullable=True)
+    
+    is_enabled = Column(Boolean, default=True, comment="是否启用")
+    created_at = Column(DateTime, default=datetime.now)
+    
+    user = relationship("User")
+    alert_channel = relationship("UserChannel")
+    
+    def to_dict(self):
+        """转换为字典"""
+        rule_params = {}
+        if self.rule_params:
+            try:
+                rule_params = json.loads(self.rule_params)
+            except:
+                pass
+        
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'rule_type': self.rule_type,
+            'rule_params': rule_params,
+            'alert_channel_id': self.alert_channel_id,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
 
 
 # 数据库配置

@@ -1,13 +1,19 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.cron import CronTrigger
-from models import NotifyTask, NotifyStatus, ExternalCalendar, UserChannel, get_db
+from models import NotifyTask, NotifyStatus, ExternalCalendar, UserChannel, get_db, DATABASE_URL
 from notifier import NotificationSender, parse_config
 import logging
 import queue
 import requests
 import re
+import traceback
+import socket
+import os
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -50,13 +56,393 @@ def get_cron_trigger(expression):
     return CronTrigger.from_crontab(expression)
 
 
+# ============ 模块级函数（用于 APScheduler job，避免序列化问题） ============
+
+def execute_task(task_id: int):
+    """
+    执行通知任务（模块级函数，可被序列化）
+    
+    Args:
+        task_id: 任务ID
+    """
+    from models import TaskExecutionLog
+    
+    execution_start = datetime.now()
+    worker_id = f"{os.getpid()}"
+    hostname = socket.gethostname()
+    job_id = None
+    log = None
+    
+    with get_db() as db:
+        try:
+            # 获取任务
+            task = db.query(NotifyTask).filter(NotifyTask.id == task_id).first()
+            if not task:
+                logger.error(f"任务 {task_id} 不存在")
+                return
+
+            job_id = f"recurring_task_{task_id}" if task.is_recurring else f"task_{task_id}"
+            
+            # 生成重复检测键（精确到秒）
+            duplicate_check_key = f"{task_id}_{execution_start.strftime('%Y%m%d%H%M%S')}"
+            
+            # 重复执行检测 - 检查最近3秒内是否有相同任务执行
+            recent_logs = db.query(TaskExecutionLog).filter(
+                TaskExecutionLog.task_id == task_id,
+                TaskExecutionLog.execution_start >= execution_start - timedelta(seconds=3),
+                TaskExecutionLog.status.in_(['started', 'success'])
+            ).all()
+            
+            is_duplicate = len(recent_logs) > 0
+            if is_duplicate:
+                logger.warning(f"⚠️ 检测到任务 {task_id} 重复执行（最近3秒内已执行），本次跳过")
+                # 不记录跳过的日志，直接返回
+                
+                # 触发告警
+                try:
+                    check_and_alert(task_id, 'duplicate_execution', db)
+                except Exception as alert_err:
+                    logger.error(f"触发告警失败: {str(alert_err)}")
+                return
+
+            # 如果任务已取消，跳过执行
+            if task.status == NotifyStatus.CANCELLED:
+                logger.info(f"任务 {task_id} 已取消，跳过执行")
+                return
+
+            # 检查暂停状态
+            if task.status == NotifyStatus.PAUSED:
+                logger.info(f"任务 {task_id} 已暂停，跳过执行")
+                return
+            
+            # 记录开始执行
+            log = TaskExecutionLog(
+                task_id=task_id,
+                job_id=job_id,
+                execution_start=execution_start,
+                status='started',
+                worker_id=worker_id,
+                hostname=hostname,
+                duplicate_check_key=duplicate_check_key
+            )
+            db.add(log)
+            db.commit()
+
+            logger.info(f"✓ 开始执行任务 {task_id}: {task.title} (Worker: {worker_id})")
+
+            # 检测是多渠道还是单渠道任务
+            is_multi_channel = task.channels_json is not None
+            
+            if is_multi_channel:
+                # 多渠道模式
+                try:
+                    channels = json.loads(task.channels_json)
+                    channels_config = json.loads(task.channels_config_json)
+                except (json.JSONDecodeError, TypeError) as e:
+                    raise Exception(f"配置解析失败: {str(e)}")
+                
+                send_results = {}
+                success_count = 0
+                fail_count = 0
+                
+                # 遍历所有渠道发送通知
+                for channel_str in channels:
+                    try:
+                        from models import NotifyChannel
+                        channel = NotifyChannel(channel_str)
+                        config = parse_config(channels_config.get(channel_str, {}))
+                        
+                        logger.info(f"任务 {task_id} 向渠道 {channel_str} 发送通知")
+                        NotificationSender.send(
+                            channel=channel,
+                            config=config,
+                            title=task.title,
+                            content=task.content
+                        )
+                        
+                        send_results[channel_str] = {
+                            'status': 'sent',
+                            'message': '发送成功',
+                            'sent_time': datetime.now().isoformat()
+                        }
+                        success_count += 1
+                        logger.info(f"任务 {task_id} 渠道 {channel_str} 发送成功")
+                        
+                    except Exception as e:
+                        send_results[channel_str] = {
+                            'status': 'failed',
+                            'message': str(e),
+                            'sent_time': datetime.now().isoformat()
+                        }
+                        fail_count += 1
+                        logger.error(f"任务 {task_id} 渠道 {channel_str} 发送失败: {str(e)}")
+                
+                # 更新任务状态
+                if not task.is_recurring:
+                    if success_count > 0:
+                        task.status = NotifyStatus.SENT
+                    else:
+                        task.status = NotifyStatus.FAILED
+                
+                task.sent_time = datetime.now()
+                task.send_results = json.dumps(send_results, ensure_ascii=False)
+                
+                # 设置错误信息（如果有失败）
+                if fail_count > 0:
+                    task.error_msg = f"{success_count}/{len(channels)} 个渠道发送成功，{fail_count} 个失败"
+                else:
+                    task.error_msg = None
+                
+                # 重复任务执行成功后，滚动更新下一次执行时间
+                if task.is_recurring and task.cron_expression:
+                    try:
+                        trigger = get_cron_trigger(task.cron_expression)
+                        base_time = datetime.now()
+                        next_run = trigger.get_next_fire_time(None, base_time)
+                        if next_run:
+                            task.scheduled_time = next_run
+                    except Exception as e:
+                        logger.warning(f"任务 {task_id} 更新下一次执行时间失败: {str(e)}")
+                
+                # 更新执行日志
+                execution_end = datetime.now()
+                duration = (execution_end - execution_start).total_seconds()
+                log.execution_end = execution_end
+                log.execution_duration = duration
+                log.status = 'success' if success_count > 0 else 'failed'
+                log.result_summary = f"多渠道执行完成: {success_count} 成功, {fail_count} 失败"
+                log.channel_results = json.dumps(send_results, ensure_ascii=False)
+                log.success_count = success_count
+                log.failed_count = fail_count
+                
+                logger.info(f"✓ 任务 {task_id} 多渠道执行完成: {success_count} 成功, {fail_count} 失败，耗时 {duration:.2f}秒")
+                
+                # 通知前端
+                event_manager.announce(task.user_id, {
+                    'type': 'task_executed',
+                    'task_id': task.id,
+                    'title': task.title,
+                    'status': 'sent' if success_count > 0 else 'failed',
+                    'message': f'{success_count}/{len(channels)} 个渠道发送成功'
+                })
+                
+            else:
+                # 单渠道模式（向后兼容）
+                config = parse_config(task.channel_config)
+
+                # 发送通知
+                NotificationSender.send(
+                    channel=task.channel,
+                    config=config,
+                    title=task.title,
+                    content=task.content
+                )
+
+                # 更新任务状态
+                if not task.is_recurring:
+                    task.status = NotifyStatus.SENT
+                task.sent_time = datetime.now()
+                task.error_msg = None
+
+                # 重复任务执行成功后，滚动更新下一次执行时间
+                if task.is_recurring and task.cron_expression:
+                    try:
+                        trigger = get_cron_trigger(task.cron_expression)
+                        base_time = datetime.now()
+                        next_run = trigger.get_next_fire_time(None, base_time)
+                        if next_run:
+                            task.scheduled_time = next_run
+                    except Exception as e:
+                        logger.warning(f"任务 {task_id} 更新下一次执行时间失败: {str(e)}")
+                
+                # 更新执行日志
+                execution_end = datetime.now()
+                duration = (execution_end - execution_start).total_seconds()
+                log.execution_end = execution_end
+                log.execution_duration = duration
+                log.status = 'success'
+                log.result_summary = '单渠道发送成功'
+                log.success_count = 1
+                log.failed_count = 0
+
+                logger.info(f"✓ 任务 {task_id} 执行成功，耗时 {duration:.2f}秒")
+                
+                # 通知前端
+                event_manager.announce(task.user_id, {
+                    'type': 'task_executed',
+                    'task_id': task.id,
+                    'title': task.title,
+                    'status': 'sent',
+                    'message': '发送成功'
+                })
+
+            db.commit()
+
+        except Exception as e:
+            # 执行失败
+            execution_end = datetime.now()
+            duration = (execution_end - execution_start).total_seconds() if execution_start else 0
+            
+            if log:
+                log.execution_end = execution_end
+                log.execution_duration = duration
+                log.status = 'failed'
+                log.error_message = str(e)
+                log.error_traceback = traceback.format_exc()
+            
+            # 更新任务状态
+            try:
+                task = db.query(NotifyTask).filter(NotifyTask.id == task_id).first()
+                if task:
+                    task.status = NotifyStatus.FAILED
+                    task.error_msg = str(e)
+                    
+                    # 通知前端
+                    event_manager.announce(task.user_id, {
+                        'type': 'task_executed',
+                        'task_id': task.id,
+                        'title': task.title,
+                        'status': 'failed',
+                        'message': str(e)
+                    })
+            except:
+                pass
+            
+            db.commit()
+            logger.error(f"✗ 任务 {task_id} 执行失败: {str(e)}\n{traceback.format_exc()}")
+            
+            # 触发告警
+            try:
+                check_and_alert(task_id, 'execution_failure', db)
+            except Exception as alert_err:
+                logger.error(f"触发告警失败: {str(alert_err)}")
+
+
+def check_and_alert(task_id: int, alert_type: str, db_session):
+    """
+    检查并触发告警（模块级函数）
+    
+    Args:
+        task_id: 任务ID
+        alert_type: 告警类型 (duplicate_execution, execution_failure)
+        db_session: 数据库会话
+    """
+    try:
+        from models import AlertRule, TaskExecutionLog
+        
+        # 查询任务和用户的告警规则
+        task = db_session.query(NotifyTask).filter(NotifyTask.id == task_id).first()
+        if not task:
+            return
+        
+        rules = db_session.query(AlertRule).filter(
+            AlertRule.user_id == task.user_id,
+            AlertRule.rule_type == alert_type,
+            AlertRule.is_enabled == True
+        ).all()
+        
+        for rule in rules:
+            params = json.loads(rule.rule_params) if rule.rule_params else {}
+            
+            if alert_type == 'duplicate_execution':
+                # 检查时间窗口内的重复执行次数
+                time_window = params.get('time_window', 300)  # 默认5分钟
+                threshold = params.get('threshold', 2)
+                
+                recent_duplicates = db_session.query(TaskExecutionLog).filter(
+                    TaskExecutionLog.task_id == task_id,
+                    TaskExecutionLog.is_duplicate == True,
+                    TaskExecutionLog.execution_start >= datetime.now() - timedelta(seconds=time_window)
+                ).count()
+                
+                if recent_duplicates >= threshold:
+                    send_alert(rule, task, f"任务在{time_window}秒内重复执行{recent_duplicates}次", db_session)
+            
+            elif alert_type == 'execution_failure':
+                # 检查失败率
+                time_window = params.get('time_window', 3600)  # 默认1小时
+                failure_threshold = params.get('threshold', 3)
+                
+                recent_failures = db_session.query(TaskExecutionLog).filter(
+                    TaskExecutionLog.task_id == task_id,
+                    TaskExecutionLog.status == 'failed',
+                    TaskExecutionLog.execution_start >= datetime.now() - timedelta(seconds=time_window)
+                ).count()
+                
+                if recent_failures >= failure_threshold:
+                    send_alert(rule, task, f"任务在{time_window}秒内失败{recent_failures}次", db_session)
+    
+    except Exception as e:
+        logger.error(f"告警检查失败: {str(e)}")
+
+
+def send_alert(rule, task: NotifyTask, message: str, db_session):
+    """
+    发送告警通知（模块级函数）
+    
+    Args:
+        rule: 告警规则对象
+        task: 任务对象
+        message: 告警消息
+        db_session: 数据库会话
+    """
+    try:
+        if not rule.alert_channel:
+            logger.warning(f"告警规则 {rule.id} 未配置告警渠道")
+            return
+        
+        config = parse_config(rule.alert_channel.channel_config)
+        title = f"⚠️ 任务告警: {task.title}"
+        content = f"""
+任务ID: {task.id}
+任务名称: {task.title}
+告警类型: {rule.rule_type}
+告警信息: {message}
+告警时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+请及时检查任务状态。
+"""
+        
+        NotificationSender.send(
+            channel=rule.alert_channel.channel_type,
+            config=config,
+            title=title,
+            content=content
+        )
+        logger.info(f"✓ 告警通知已发送: {message}")
+    except Exception as e:
+        logger.error(f"✗ 发送告警失败: {str(e)}")
+
+
 class NotifyScheduler:
     """通知调度器"""
     
     def __init__(self):
-        self.scheduler = BackgroundScheduler()
+        # 配置 jobstore - 使用 SQLAlchemy 持久化存储
+        jobstores = {
+            'default': SQLAlchemyJobStore(url=DATABASE_URL, tablename='apscheduler_jobs')
+        }
+        
+        # 配置执行器
+        executors = {
+            'default': ThreadPoolExecutor(max_workers=10)
+        }
+        
+        # 调度器全局配置 - 防止任务重复执行的关键配置
+        job_defaults = {
+            'coalesce': True,           # 合并错过的执行，只执行最新一次
+            'max_instances': 1,         # 每个任务最多同时运行1个实例（防重复关键）
+            'misfire_grace_time': 60    # 错过时间容忍度60秒
+        }
+        
+        self.scheduler = BackgroundScheduler(
+            jobstores=jobstores,
+            executors=executors,
+            job_defaults=job_defaults,
+            timezone='Asia/Shanghai'
+        )
         self.scheduler.start()
-        logger.info("通知调度器已启动")
+        logger.info("通知调度器已启动（使用SQLAlchemyJobStore防重复执行）")
     
     def add_task(self, task: NotifyTask):
         """
@@ -72,12 +458,14 @@ class NotifyScheduler:
                 job_id = f"recurring_task_{task.id}"
                 
                 self.scheduler.add_job(
-                    func=self._execute_task,
+                    func=execute_task,
                     trigger=trigger,
                     args=[task.id],
                     id=job_id,
                     replace_existing=True,
-                    misfire_grace_time=60  # 错过时间窗口60秒内仍执行
+                    coalesce=True,
+                    max_instances=1,
+                    misfire_grace_time=60
                 )
                 logger.info(f"任务 {task.id} 已添加到调度器，计划执行时间: {task.scheduled_time}")
             except Exception as e:
@@ -88,12 +476,14 @@ class NotifyScheduler:
             job_id = f"task_{task.id}"
         
             self.scheduler.add_job(
-                func=self._execute_task,
+                func=execute_task,
                 trigger=trigger,
                 args=[task.id],
                 id=job_id,
                 replace_existing=True,
-                misfire_grace_time=60  # 错过时间窗口60秒内仍执行
+                coalesce=True,
+                max_instances=1,
+                misfire_grace_time=60
             )
             
             logger.info(f"任务 {task.id} 已添加到调度器，计划执行时间: {task.scheduled_time}")
@@ -112,187 +502,6 @@ class NotifyScheduler:
             logger.info(f"任务 {task_id} 已从调度器移除")
         except Exception as e:
             logger.warning(f"移除任务 {task_id} 失败: {str(e)}")
-    
-    def _execute_task(self, task_id: int):
-        """
-        执行通知任务
-
-        Args:
-            task_id: 任务ID
-        """
-        with get_db() as db:
-            try:
-                # 获取任务
-                task = db.query(NotifyTask).filter(NotifyTask.id == task_id).first()
-                if not task:
-                    logger.error(f"任务 {task_id} 不存在")
-                    return
-
-                # 如果任务已取消，跳过执行
-                if task.status == NotifyStatus.CANCELLED:
-                    logger.info(f"任务 {task_id} 已取消，跳过执行")
-                    return
-
-                # 检查暂停状态
-                if task.status == NotifyStatus.PAUSED:
-                    logger.info(f"任务 {task_id} 已暂停，跳过执行")
-                    return
-
-                logger.info(f"开始执行任务 {task_id}: {task.title}")
-
-                # 检测是多渠道还是单渠道任务
-                is_multi_channel = task.channels_json is not None
-                
-                if is_multi_channel:
-                    # 多渠道模式
-                    import json
-                    try:
-                        channels = json.loads(task.channels_json)
-                        channels_config = json.loads(task.channels_config_json)
-                    except (json.JSONDecodeError, TypeError) as e:
-                        logger.error(f"任务 {task_id} 多渠道配置解析失败: {str(e)}")
-                        task.status = NotifyStatus.FAILED
-                        task.error_msg = f"配置解析失败: {str(e)}"
-                        db.commit()
-                        return
-                    
-                    send_results = {}
-                    success_count = 0
-                    fail_count = 0
-                    
-                    # 遍历所有渠道发送通知
-                    for channel_str in channels:
-                        try:
-                            from models import NotifyChannel
-                            channel = NotifyChannel(channel_str)
-                            config = parse_config(channels_config.get(channel_str, {}))
-                            
-                            logger.info(f"任务 {task_id} 向渠道 {channel_str} 发送通知")
-                            NotificationSender.send(
-                                channel=channel,
-                                config=config,
-                                title=task.title,
-                                content=task.content
-                            )
-                            
-                            send_results[channel_str] = {
-                                'status': 'sent',
-                                'message': '发送成功',
-                                'sent_time': datetime.now().isoformat()
-                            }
-                            success_count += 1
-                            logger.info(f"任务 {task_id} 渠道 {channel_str} 发送成功")
-                            
-                        except Exception as e:
-                            send_results[channel_str] = {
-                                'status': 'failed',
-                                'message': str(e),
-                                'sent_time': datetime.now().isoformat()
-                            }
-                            fail_count += 1
-                            logger.error(f"任务 {task_id} 渠道 {channel_str} 发送失败: {str(e)}")
-                    
-                    # 更新任务状态
-                    if not task.is_recurring:
-                        if success_count > 0:
-                            task.status = NotifyStatus.SENT
-                        else:
-                            task.status = NotifyStatus.FAILED
-                    
-                    task.sent_time = datetime.now()
-                    task.send_results = json.dumps(send_results, ensure_ascii=False)
-                    
-                    # 设置错误信息（如果有失败）
-                    if fail_count > 0:
-                        task.error_msg = f"{success_count}/{len(channels)} 个渠道发送成功，{fail_count} 个失败"
-                    else:
-                        task.error_msg = None
-                    
-                    # 重复任务执行成功后，滚动更新下一次执行时间
-                    if task.is_recurring and task.cron_expression:
-                        try:
-                            trigger = get_cron_trigger(task.cron_expression)
-                            base_time = datetime.now()
-                            next_run = trigger.get_next_fire_time(None, base_time)
-                            if next_run:
-                                task.scheduled_time = next_run
-                        except Exception as e:
-                            logger.warning(f"任务 {task_id} 更新下一次执行时间失败: {str(e)}")
-                    
-                    logger.info(f"任务 {task_id} 多渠道执行完成: {success_count} 成功, {fail_count} 失败")
-                    
-                    # 通知前端
-                    event_manager.announce(task.user_id, {
-                        'type': 'task_executed',
-                        'task_id': task.id,
-                        'title': task.title,
-                        'status': 'sent' if success_count > 0 else 'failed',
-                        'message': f'{success_count}/{len(channels)} 个渠道发送成功'
-                    })
-                    
-                else:
-                    # 单渠道模式（向后兼容）
-                    config = parse_config(task.channel_config)
-
-                    # 发送通知
-                    try:
-                        NotificationSender.send(
-                            channel=task.channel,
-                            config=config,
-                            title=task.title,
-                            content=task.content
-                        )
-
-                        # 更新任务状态
-                        if not task.is_recurring:
-                            task.status = NotifyStatus.SENT
-                        task.sent_time = datetime.now()
-                        task.error_msg = None
-
-                        # 关键：重复任务执行成功后，滚动更新下一次执行时间（用于列表展示）
-                        if task.is_recurring and task.cron_expression:
-                            try:
-                                trigger = get_cron_trigger(task.cron_expression)
-                                # 以"本次实际执行时间"为基准，计算下一次
-                                base_time = datetime.now()
-                                next_run = trigger.get_next_fire_time(None, base_time)
-                                if next_run:
-                                    task.scheduled_time = next_run
-                            except Exception as e:
-                                # 不影响本次发送结果，但记录日志
-                                logger.warning(f"任务 {task_id} 更新下一次执行时间失败: {str(e)}")
-
-                        logger.info(f"任务 {task_id} 执行成功")
-                        
-                        # 通知前端
-                        event_manager.announce(task.user_id, {
-                            'type': 'task_executed',
-                            'task_id': task.id,
-                            'title': task.title,
-                            'status': 'sent',
-                            'message': '发送成功'
-                        })
-
-                    except Exception as e:
-                        # 更新任务状态为失败
-                        task.status = NotifyStatus.FAILED
-                        task.error_msg = str(e)
-                        logger.error(f"任务 {task_id} 执行失败: {str(e)}")
-                        
-                        # 通知前端
-                        event_manager.announce(task.user_id, {
-                            'type': 'task_executed',
-                            'task_id': task.id,
-                            'title': task.title,
-                            'status': 'failed',
-                            'message': str(e)
-                        })
-
-                db.commit()
-
-            except Exception as e:
-                logger.error(f"执行任务 {task_id} 时发生错误: {str(e)}")
-                db.rollback()
     
     def load_pending_tasks(self):
         """
@@ -366,7 +575,9 @@ class NotifyScheduler:
                 'interval',
                 minutes=15,
                 id='sync_external_calendars',
-                replace_existing=True
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1
             )
             logger.info("外部日历同步任务已启动 (每15分钟)")
 
@@ -517,5 +728,7 @@ def sync_all_external_calendars():
                 args=[cal.id],
                 id=f"sync_cal_{cal.id}_auto",
                 replace_existing=True,
+                coalesce=True,
+                max_instances=1,
                 misfire_grace_time=60
             )

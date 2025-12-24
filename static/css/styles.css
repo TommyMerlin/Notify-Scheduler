@@ -1588,3 +1588,38 @@ header p {
         opacity: 0.5;
     }
 }
+/* ==================== 任务执行日志样式 ==================== */
+
+.log-item {
+    background: var(--bg-card, rgba(15, 23, 42, 0.05));
+    border: 1px solid var(--card-border, rgba(15, 23, 42, 0.08));
+    border-radius: var(--radius-sm, 12px);
+    padding: 15px;
+    margin-bottom: 12px;
+    transition: all 0.2s ease;
+}
+
+.log-item:hover {
+    background: rgba(15, 23, 42, 0.08);
+    border-color: var(--primary, #5f7bff);
+    transform: translateX(2px);
+}
+
+.log-item:last-child {
+    margin-bottom: 0;
+}
+
+#logsModal .modal-content {
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

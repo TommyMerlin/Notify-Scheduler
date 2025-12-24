@@ -783,6 +783,227 @@ def health_check():
     })
 
 
+# 任务执行日志相关API
+@app.route('/api/tasks/<int:task_id>/logs', methods=['GET'])
+@login_required
+def get_task_execution_logs(task_id):
+    """获取任务执行日志"""
+    try:
+        from models import TaskExecutionLog
+        
+        with get_db() as db:
+            # 验证任务所属
+            task = db.query(NotifyTask).filter(
+                NotifyTask.id == task_id,
+                NotifyTask.user_id == request.current_user.id
+            ).first()
+            if not task:
+                return jsonify({'error': '任务不存在'}), 404
+            
+            # 分页查询日志
+            page = int(request.args.get('page', 1))
+            page_size = int(request.args.get('page_size', 50))
+            
+            logs_query = db.query(TaskExecutionLog).filter(
+                TaskExecutionLog.task_id == task_id
+            ).order_by(
+                TaskExecutionLog.execution_start.desc()
+            )
+            
+            total = logs_query.count()
+            logs = logs_query.offset((page - 1) * page_size).limit(page_size).all()
+            
+            return jsonify({
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'logs': [log.to_dict() for log in logs]
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/logs', methods=['GET'])
+@login_required
+def get_all_execution_logs():
+    """获取用户所有任务的执行日志"""
+    try:
+        from models import TaskExecutionLog
+        
+        with get_db() as db:
+            # 分页查询
+            page = int(request.args.get('page', 1))
+            page_size = int(request.args.get('page_size', 50))
+            status = request.args.get('status')  # 可选过滤状态
+            
+            # 查询用户的所有任务ID
+            user_task_ids = [t.id for t in db.query(NotifyTask).filter(
+                NotifyTask.user_id == request.current_user.id
+            ).all()]
+            
+            logs_query = db.query(TaskExecutionLog).filter(
+                TaskExecutionLog.task_id.in_(user_task_ids)
+            )
+            
+            if status:
+                logs_query = logs_query.filter(TaskExecutionLog.status == status)
+            
+            logs_query = logs_query.order_by(TaskExecutionLog.execution_start.desc())
+            
+            total = logs_query.count()
+            logs = logs_query.offset((page - 1) * page_size).limit(page_size).all()
+            
+            return jsonify({
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'logs': [log.to_dict() for log in logs]
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# 告警规则相关API
+@app.route('/api/alerts/rules', methods=['GET'])
+@login_required
+def get_alert_rules():
+    """获取用户的告警规则列表"""
+    try:
+        from models import AlertRule
+        
+        with get_db() as db:
+            rules = db.query(AlertRule).filter(
+                AlertRule.user_id == request.current_user.id
+            ).all()
+            
+            return jsonify({
+                'rules': [rule.to_dict() for rule in rules]
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/alerts/rules', methods=['POST'])
+@login_required
+def create_alert_rule():
+    """创建告警规则"""
+    try:
+        from models import AlertRule
+        
+        data = request.get_json()
+        rule_type = data.get('rule_type')
+        rule_params = data.get('rule_params', {})
+        alert_channel_id = data.get('alert_channel_id')
+        
+        if not rule_type:
+            return jsonify({'error': '告警类型不能为空'}), 400
+        
+        # 验证规则类型
+        valid_types = ['duplicate_execution', 'execution_failure', 'long_running', 'high_failure_rate']
+        if rule_type not in valid_types:
+            return jsonify({'error': f'无效的告警类型，必须是: {", ".join(valid_types)}'}), 400
+        
+        with get_db() as db:
+            # 如果指定了告警渠道，验证所属
+            if alert_channel_id:
+                channel = db.query(UserChannel).filter(
+                    UserChannel.id == alert_channel_id,
+                    UserChannel.user_id == request.current_user.id
+                ).first()
+                if not channel:
+                    return jsonify({'error': '告警渠道不存在'}), 404
+            
+            rule = AlertRule(
+                user_id=request.current_user.id,
+                rule_type=rule_type,
+                rule_params=json.dumps(rule_params, ensure_ascii=False),
+                alert_channel_id=alert_channel_id,
+                is_enabled=data.get('is_enabled', True)
+            )
+            
+            db.add(rule)
+            db.commit()
+            db.refresh(rule)
+            
+            return jsonify({
+                'message': '告警规则创建成功',
+                'rule': rule.to_dict()
+            }), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/alerts/rules/<int:rule_id>', methods=['PUT'])
+@login_required
+def update_alert_rule(rule_id):
+    """更新告警规则"""
+    try:
+        from models import AlertRule
+        
+        data = request.get_json()
+        
+        with get_db() as db:
+            rule = db.query(AlertRule).filter(
+                AlertRule.id == rule_id,
+                AlertRule.user_id == request.current_user.id
+            ).first()
+            
+            if not rule:
+                return jsonify({'error': '告警规则不存在'}), 404
+            
+            # 更新字段
+            if 'rule_params' in data:
+                rule.rule_params = json.dumps(data['rule_params'], ensure_ascii=False)
+            if 'alert_channel_id' in data:
+                # 验证渠道所属
+                if data['alert_channel_id']:
+                    channel = db.query(UserChannel).filter(
+                        UserChannel.id == data['alert_channel_id'],
+                        UserChannel.user_id == request.current_user.id
+                    ).first()
+                    if not channel:
+                        return jsonify({'error': '告警渠道不存在'}), 404
+                rule.alert_channel_id = data['alert_channel_id']
+            if 'is_enabled' in data:
+                rule.is_enabled = data['is_enabled']
+            
+            db.commit()
+            db.refresh(rule)
+            
+            return jsonify({
+                'message': '告警规则更新成功',
+                'rule': rule.to_dict()
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/alerts/rules/<int:rule_id>', methods=['DELETE'])
+@login_required
+def delete_alert_rule(rule_id):
+    """删除告警规则"""
+    try:
+        from models import AlertRule
+        
+        with get_db() as db:
+            rule = db.query(AlertRule).filter(
+                AlertRule.id == rule_id,
+                AlertRule.user_id == request.current_user.id
+            ).first()
+            
+            if not rule:
+                return jsonify({'error': '告警规则不存在'}), 404
+            
+            db.delete(rule)
+            db.commit()
+            
+            return jsonify({
+                'message': '告警规则删除成功'
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/events')
 def sse_events():
     """服务器发送事件 (SSE) 端点"""

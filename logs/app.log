@@ -1,0 +1,71 @@
+INFO:apscheduler.scheduler:Scheduler started
+INFO:scheduler:通知调度器已启动（使用SQLAlchemyJobStore防重复执行）
+WARNING:apscheduler.executors.default:Run time of job "sync_all_external_calendars (trigger: interval[0:15:00], next run at: 2025-12-24 14:29:31 CST)" was missed by 0:06:25.685808
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+INFO:sqlalchemy.engine.Engine:BEGIN (implicit)
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("users")
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine [raw sql] ()
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("external_calendars")
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("external_calendars")
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine [raw sql] ()
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("user_channels")
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("user_channels")
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine [raw sql] ()
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("notify_tasks")
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("notify_tasks")
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine [raw sql] ()
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("task_execution_logs")
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("task_execution_logs")
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine [raw sql] ()
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("alert_rules")
+INFO:sqlalchemy.engine.Engine:PRAGMA main.table_info("alert_rules")
+2025-12-24 14:35:56,801 INFO sqlalchemy.engine.Engine [raw sql] ()
+INFO:sqlalchemy.engine.Engine:[raw sql] ()
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine COMMIT
+INFO:sqlalchemy.engine.Engine:COMMIT
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+INFO:sqlalchemy.engine.Engine:BEGIN (implicit)
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine SELECT calendar_token FROM users LIMIT 1
+INFO:sqlalchemy.engine.Engine:SELECT calendar_token FROM users LIMIT 1
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine [generated in 0.00005s] ()
+INFO:sqlalchemy.engine.Engine:[generated in 0.00005s] ()
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine SELECT external_uid FROM notify_tasks LIMIT 1
+INFO:sqlalchemy.engine.Engine:SELECT external_uid FROM notify_tasks LIMIT 1
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine [generated in 0.00002s] ()
+INFO:sqlalchemy.engine.Engine:[generated in 0.00002s] ()
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine SELECT channels_json FROM notify_tasks LIMIT 1
+INFO:sqlalchemy.engine.Engine:SELECT channels_json FROM notify_tasks LIMIT 1
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine [generated in 0.00004s] ()
+INFO:sqlalchemy.engine.Engine:[generated in 0.00004s] ()
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine SELECT sql FROM sqlite_master WHERE type='table' AND name='notify_tasks'
+INFO:sqlalchemy.engine.Engine:SELECT sql FROM sqlite_master WHERE type='table' AND name='notify_tasks'
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine [generated in 0.00003s] ()
+INFO:sqlalchemy.engine.Engine:[generated in 0.00003s] ()
+2025-12-24 14:35:56,802 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:sqlalchemy.engine.Engine:ROLLBACK
+2025-12-24 14:35:56,808 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+INFO:sqlalchemy.engine.Engine:BEGIN (implicit)
+2025-12-24 14:35:56,809 INFO sqlalchemy.engine.Engine SELECT notify_tasks.id AS notify_tasks_id, notify_tasks.user_id AS notify_tasks_user_id, notify_tasks.title AS notify_tasks_title, notify_tasks.content AS notify_tasks_content, notify_tasks.channel AS notify_tasks_channel, notify_tasks.scheduled_time AS notify_tasks_scheduled_time, notify_tasks.channel_config AS notify_tasks_channel_config, notify_tasks.channels_json AS notify_tasks_channels_json, notify_tasks.channels_config_json AS notify_tasks_channels_config_json, notify_tasks.send_results AS notify_tasks_send_results, notify_tasks.status AS notify_tasks_status, notify_tasks.sent_time AS notify_tasks_sent_time, notify_tasks.error_msg AS notify_tasks_error_msg, notify_tasks.created_at AS notify_tasks_created_at, notify_tasks.updated_at AS notify_tasks_updated_at, notify_tasks.is_recurring AS notify_tasks_is_recurring, notify_tasks.cron_expression AS notify_tasks_cron_expression, notify_tasks.external_uid AS notify_tasks_external_uid 
+FROM notify_tasks 
+WHERE notify_tasks.status = ?
+INFO:sqlalchemy.engine.Engine:SELECT notify_tasks.id AS notify_tasks_id, notify_tasks.user_id AS notify_tasks_user_id, notify_tasks.title AS notify_tasks_title, notify_tasks.content AS notify_tasks_content, notify_tasks.channel AS notify_tasks_channel, notify_tasks.scheduled_time AS notify_tasks_scheduled_time, notify_tasks.channel_config AS notify_tasks_channel_config, notify_tasks.channels_json AS notify_tasks_channels_json, notify_tasks.channels_config_json AS notify_tasks_channels_config_json, notify_tasks.send_results AS notify_tasks_send_results, notify_tasks.status AS notify_tasks_status, notify_tasks.sent_time AS notify_tasks_sent_time, notify_tasks.error_msg AS notify_tasks_error_msg, notify_tasks.created_at AS notify_tasks_created_at, notify_tasks.updated_at AS notify_tasks_updated_at, notify_tasks.is_recurring AS notify_tasks_is_recurring, notify_tasks.cron_expression AS notify_tasks_cron_expression, notify_tasks.external_uid AS notify_tasks_external_uid 
+FROM notify_tasks 
+WHERE notify_tasks.status = ?
+2025-12-24 14:35:56,809 INFO sqlalchemy.engine.Engine [generated in 0.00007s] ('pending',)
+INFO:sqlalchemy.engine.Engine:[generated in 0.00007s] ('pending',)
+INFO:scheduler:找到 2 个待发送任务
+ERROR:scheduler:加载任务 20 失败: Schedulers cannot be serialized. Ensure that you are not passing a scheduler instance as an argument to a job, or scheduling an instance method where the instance contains a scheduler as an attribute.
+ERROR:scheduler:加载任务 25 失败: Schedulers cannot be serialized. Ensure that you are not passing a scheduler instance as an argument to a job, or scheduling an instance method where the instance contains a scheduler as an attribute.
+INFO:scheduler:待发送任务加载完成
+2025-12-24 14:35:56,812 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:sqlalchemy.engine.Engine:ROLLBACK
+ * Serving Flask app 'app'
+ * Debug mode: on
+Address already in use
+Port 8080 is in use by another program. Either identify and stop that program, or start the server with a different port.

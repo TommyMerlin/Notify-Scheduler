@@ -1096,6 +1096,7 @@ function createTaskElement(task) {
         </div>
         ${task.error_msg ? `<div style="color: #e74c3c; margin-top: 10px;">❌ 错误: ${escapeHtml(task.error_msg)}</div>` : ''}
         <div class="task-actions">
+            <button class="btn btn-sm btn-ghost" onclick="viewTaskLogs(${task.id})" title="查看执行日志">📊 日志</button>
             ${task.status === 'pending' ? `
                 <button class="btn btn-sm btn-info" onclick="editTask(${task.id})">编辑</button>
                 ${task.is_recurring ? `<button class="btn btn-sm btn-warning" onclick="toggleTaskPause(${task.id}, 'pause')">暂停</button>` : ''}
@@ -2598,3 +2599,190 @@ function dismissUpdateBanner(version) {
         sessionStorage.setItem('updateBannerDismissed', version);
     }
 }
+
+// ==================== 任务执行日志功能 ====================
+
+let currentLogsTaskId = null;
+let currentLogsPage = 1;
+
+// 查看任务执行日志
+async function viewTaskLogs(taskId) {
+    currentLogsTaskId = taskId;
+    currentLogsPage = 1;
+    
+    // 获取任务信息
+    try {
+        const taskResponse = await fetch(`${API_BASE}/tasks/${taskId}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (taskResponse.ok) {
+            const taskData = await taskResponse.json();
+            const task = taskData.task;
+            
+            // 填充任务信息
+            document.getElementById('logsTaskTitle').textContent = task.title;
+            document.getElementById('logsTaskId').textContent = `#${task.id}`;
+            
+            const statusBadge = document.getElementById('logsTaskStatus');
+            const statusClass = `status-${task.status}`;
+            const statusText = {
+                'pending': '待发送',
+                'sent': '已发送',
+                'failed': '发送失败',
+                'cancelled': '已取消',
+                'paused': '已暂停'
+            }[task.status] || task.status;
+            statusBadge.className = `status-badge ${statusClass}`;
+            statusBadge.textContent = statusText;
+        }
+    } catch (error) {
+        console.error('获取任务信息失败:', error);
+    }
+    
+    // 显示模态框
+    document.getElementById('logsModal').style.display = 'block';
+    
+    // 加载日志
+    await loadTaskLogs(taskId, currentLogsPage);
+}
+
+// 加载任务执行日志
+async function loadTaskLogs(taskId, page = 1) {
+    const logsContent = document.getElementById('logsContent');
+    logsContent.innerHTML = '<div class="loading"><div class="spinner"></div><p>加载日志中...</p></div>';
+    
+    try {
+        const response = await fetch(`${API_BASE}/tasks/${taskId}/logs?page=${page}&page_size=20`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error('加载日志失败');
+        }
+        
+        const data = await response.json();
+        
+        if (data.logs && data.logs.length > 0) {
+            logsContent.innerHTML = '';
+            
+            data.logs.forEach(log => {
+                const logItem = createLogElement(log);
+                logsContent.appendChild(logItem);
+            });
+            
+            // 渲染分页
+            renderLogsPagination(data.total, data.page, data.page_size);
+        } else {
+            logsContent.innerHTML = '<div class="empty-state"><i>📭</i><p>暂无执行日志</p></div>';
+            document.getElementById('logsPagination').innerHTML = '';
+        }
+    } catch (error) {
+        logsContent.innerHTML = `<div class="empty-state"><i>❌</i><p>加载失败: ${error.message}</p></div>`;
+        console.error('加载日志失败:', error);
+    }
+}
+
+// 创建日志元素
+function createLogElement(log) {
+    const div = document.createElement('div');
+    div.className = 'log-item';
+    
+    const statusIcon = {
+        'started': '▶️',
+        'success': '✅',
+        'failed': '❌',
+        'skipped': '⏭️'
+    }[log.status] || '📝';
+    
+    const statusClass = {
+        'started': 'status-info',
+        'success': 'status-sent',
+        'failed': 'status-failed',
+        'skipped': 'status-cancelled'
+    }[log.status] || '';
+    
+    const statusText = {
+        'started': '开始执行',
+        'success': '执行成功',
+        'failed': '执行失败',
+        'skipped': '跳过执行'
+    }[log.status] || log.status;
+    
+    const duration = log.execution_duration ? `${log.execution_duration.toFixed(2)}秒` : '-';
+    const isDuplicate = log.is_duplicate ? '<span class="status-badge status-warning" style="margin-left: 8px;">重复检测</span>' : '';
+    
+    let channelResultsHTML = '';
+    if (log.channel_results && typeof log.channel_results === 'object') {
+        channelResultsHTML = '<div style="margin-top: 10px;"><strong>渠道发送结果：</strong><ul style="margin: 5px 0; padding-left: 20px;">';
+        for (const [channel, result] of Object.entries(log.channel_results)) {
+            const resultIcon = result.status === 'sent' ? '✅' : '❌';
+            channelResultsHTML += `<li>${resultIcon} ${channel}: ${result.message || result.status}</li>`;
+        }
+        channelResultsHTML += '</ul></div>';
+    }
+    
+    div.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+            <div>
+                <span class="status-badge ${statusClass}">${statusIcon} ${statusText}</span>
+                ${isDuplicate}
+                ${log.success_count !== undefined ? `<span style="color: var(--text-secondary); margin-left: 8px;">成功: ${log.success_count} / 失败: ${log.failed_count}</span>` : ''}
+            </div>
+            <div style="text-align: right; font-size: 0.85em; color: var(--text-secondary);">
+                <div><strong>开始:</strong> ${formatDateTime(log.execution_start)}</div>
+                ${log.execution_end ? `<div><strong>结束:</strong> ${formatDateTime(log.execution_end)}</div>` : ''}
+                <div><strong>耗时:</strong> ${duration}</div>
+            </div>
+        </div>
+        ${log.result_summary ? `<div style="margin: 8px 0;"><strong>摘要:</strong> ${escapeHtml(log.result_summary)}</div>` : ''}
+        ${channelResultsHTML}
+        ${log.error_message ? `<div style="color: #e74c3c; margin-top: 8px;"><strong>错误:</strong> ${escapeHtml(log.error_message)}</div>` : ''}
+        <div style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
+            Worker: ${log.worker_id || '-'} | Host: ${log.hostname || '-'} | Job: ${log.job_id}
+        </div>
+    `;
+    
+    return div;
+}
+
+// 渲染日志分页
+function renderLogsPagination(total, page, pageSize) {
+    const pagination = document.getElementById('logsPagination');
+    const totalPages = Math.ceil(total / pageSize);
+    
+    if (totalPages <= 1) {
+        pagination.innerHTML = '';
+        return;
+    }
+    
+    let html = `<span style="color: var(--text-secondary); margin-right: 10px;">共 ${total} 条</span>`;
+    
+    if (page > 1) {
+        html += `<button class="btn btn-sm btn-ghost" onclick="loadTaskLogs(${currentLogsTaskId}, ${page - 1})">上一页</button>`;
+    }
+    
+    html += `<span style="margin: 0 10px; color: var(--text-secondary);">第 ${page} / ${totalPages} 页</span>`;
+    
+    if (page < totalPages) {
+        html += `<button class="btn btn-sm btn-ghost" onclick="loadTaskLogs(${currentLogsTaskId}, ${page + 1})">下一页</button>`;
+    }
+    
+    pagination.innerHTML = html;
+    currentLogsPage = page;
+}
+
+// 关闭日志模态框
+function closeLogsModal() {
+    document.getElementById('logsModal').style.display = 'none';
+    currentLogsTaskId = null;
+    currentLogsPage = 1;
+}
+
+// 点击模态框外部关闭
+window.addEventListener('click', function(event) {
+    const logsModal = document.getElementById('logsModal');
+    if (event.target === logsModal) {
+        closeLogsModal();
+    }
+});
