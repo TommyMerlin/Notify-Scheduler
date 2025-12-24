@@ -160,8 +160,34 @@ header p {
     flex-wrap: wrap;
 }
 
+.datetime-display {
+    font-family: 'Space Grotesk', monospace;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #5df2c8;
+    background: rgba(93, 242, 200, 0.1);
+    padding: 8px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(93, 242, 200, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.datetime-display .date-part {
+    color: rgba(248, 250, 252, 0.9);
+}
+
+.datetime-display .time-part {
+    color: #5df2c8;
+    font-weight: 700;
+}
+
 #exportDataBtn,
-#importDataBtn {
+#importDataBtn,
+#openCalendarBtn,
+#syncBtn {
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(93, 242, 200, 0.15));
     border: 1px solid rgba(99, 102, 241, 0.3);
     color: #f8fafc;
@@ -169,7 +195,9 @@ header p {
 }
 
 #exportDataBtn:hover,
-#importDataBtn:hover {
+#importDataBtn:hover,
+#openCalendarBtn:hover,
+#syncBtn:hover {
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(93, 242, 200, 0.25));
     border-color: rgba(99, 102, 241, 0.5);
     transform: translateY(-2px);
@@ -818,6 +846,15 @@ header p {
 
     header {
         margin-bottom: 25px;
+    }
+
+    .datetime-display .date-part {
+        display: none;
+    }
+
+    .datetime-display {
+        padding: 6px 12px;
+        font-size: 0.85rem;
     }
 
     header h1 {

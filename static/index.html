@@ -104,11 +104,15 @@
                 </div>
                 <div class="user-info">
                     <span>👤 <span id="currentUsername"></span></span>
+                    <div id="currentDateTime" class="datetime-display">
+                        <span class="date-part"></span>
+                        <span class="time-part"></span>
+                    </div>
                     <button id="exportDataBtn" class="btn btn-sm btn-ghost" onclick="exportData()">📤 导出</button>
                     <button id="importDataBtn" class="btn btn-sm btn-ghost" onclick="document.getElementById('importFileInput').click()">📥 导入</button>
                     <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="importData(event)">
                     <button id="openCalendarBtn" class="btn btn-sm btn-ghost" onclick="openCalendarView()">📅 日历</button>
-                    <button class="btn btn-sm btn-ghost" onclick="openSyncModal()">🔄 订阅</button>
+                    <button id="syncBtn" class="btn btn-sm btn-ghost" onclick="openSyncModal()">🔄 订阅</button>
                     <button class="logout-btn" onclick="logout()">退出</button>
                 </div>
             </header>

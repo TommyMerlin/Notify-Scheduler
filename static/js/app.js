@@ -52,6 +52,7 @@ function showMainApp() {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
     document.getElementById('currentUsername').textContent = currentUser.username;
+    initDateTime();
     loadChannels();
     loadUserChannels();
     loadTasks();
@@ -63,6 +64,35 @@ function showMainApp() {
     if (typeof window.loadCalendar === 'function') {
         setTimeout(window.loadCalendar, 200);
     }
+}
+
+// 初始化日期时间显示
+function initDateTime() {
+    function updateDateTime() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        const weekday = weekdays[now.getDay()];
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        
+        const datePart = `${year}年${month}月${day}日 星期${weekday}`;
+        const timePart = `${hours}:${minutes}:${seconds}`;
+        
+        const dateElement = document.querySelector('#currentDateTime .date-part');
+        const timeElement = document.querySelector('#currentDateTime .time-part');
+        
+        if (dateElement && timeElement) {
+            dateElement.textContent = datePart;
+            timeElement.textContent = timePart;
+        }
+    }
+    
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
 }
 
 // 切换登录/注册标签
