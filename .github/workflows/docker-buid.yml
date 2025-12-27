@@ -63,12 +63,26 @@ jobs:
           echo "✅ 版本号: $CLEAN_VERSION"
           echo "version=$CLEAN_VERSION" >> $GITHUB_OUTPUT
 
+      # 2.5. 转换 repository owner 为小写（GHCR 要求）
+      - name: Set lowercase repository owner
+        id: repo_owner
+        run: |
+          echo "owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       # 3. 登录 Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 3.5. 登录 GitHub Container Registry
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PACKAGE_TOKEN }}
 
       # 4. 设置 Docker Buildx
       - name: Set up Docker Buildx
@@ -81,7 +95,9 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: 7ommymerlin/notify-scheduler:${{ steps.version.outputs.version }}
+          tags: |
+            7ommymerlin/notify-scheduler:${{ steps.version.outputs.version }}
+            ghcr.io/${{ steps.repo_owner.outputs.owner }}/notify-scheduler:${{ steps.version.outputs.version }}
 
       # 6. 推送 latest 标签（仅非dev版本）
       - name: Push latest tag
@@ -91,16 +107,21 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: 7ommymerlin/notify-scheduler:latest
+          tags: |
+            7ommymerlin/notify-scheduler:latest
+            ghcr.io/${{ steps.repo_owner.outputs.owner }}/notify-scheduler:latest
 
       # 7. 验证推送结果
       - name: Verify pushed tags
         run: |
-          echo "✅ 镜像已成功推送至 Docker Hub"
-          echo "📦 镜像标签:"
+          echo "✅ 镜像已成功推送至 Docker Hub 和 GitHub Container Registry"
+          echo "📦 Docker Hub 镜像标签:"
           echo "  - 7ommymerlin/notify-scheduler:${{ steps.version.outputs.version }}"
+          echo "📦 GHCR 镜像标签:"
+          echo "  - ghcr.io/${{ steps.repo_owner.outputs.owner }}/notify-scheduler:${{ steps.version.outputs.version }}"
           if [ "${{ steps.version.outputs.is_dev }}" == "false" ]; then
             echo "  - 7ommymerlin/notify-scheduler:latest"
+            echo "  - ghcr.io/${{ steps.repo_owner.outputs.owner }}/notify-scheduler:latest"
           else
             echo "  ⚠️ dev版本，未推送latest标签"
           fi
