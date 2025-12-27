@@ -4,6 +4,61 @@
     box-sizing: border-box;
 }
 
+/* Cron表达式预览样式 */
+.cron-preview {
+    margin-top: 12px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    transition: all 0.3s ease;
+}
+
+.cron-preview.success {
+    background: linear-gradient(135deg, rgba(93, 242, 200, 0.12), rgba(93, 242, 200, 0.05));
+    border: 1.5px solid rgba(93, 242, 200, 0.3);
+    padding: 14px 16px;
+}
+
+.cron-preview.error {
+    background: linear-gradient(135deg, rgba(255, 107, 107, 0.12), rgba(255, 107, 107, 0.05));
+    border: 1.5px solid rgba(255, 107, 107, 0.3);
+    padding: 12px 16px;
+}
+
+.cron-preview .preview-title {
+    font-weight: 600;
+    color: var(--text-strong);
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+.cron-preview .preview-times {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.cron-preview .preview-times li {
+    padding: 6px 0;
+    color: var(--text-strong);
+    border-bottom: 1px solid rgba(93, 242, 200, 0.15);
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+
+.cron-preview .preview-times li:last-child {
+    border-bottom: none;
+}
+
+.cron-preview .preview-error {
+    color: #dc2626;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
 :root {
     --bg: #030712;
     --bg-accent: #0b1126;
