@@ -1608,6 +1608,9 @@ function showEditTaskModal(task) {
         modalContent.style.opacity = '1';
     }, 10);
 
+    // 加载钩子配置
+    loadTaskHooksConfig(task);
+
     // 绑定表单提交事件
     const form = document.getElementById('editTaskForm');
     form.removeEventListener('submit', handleEditTaskSubmit); // 移除旧的监听器
@@ -2754,6 +2757,294 @@ async function viewTaskLogs(taskId) {
         }
     } catch (error) {
         console.error('获取任务信息失败:', error);
+    }
+    
+    // 加载第一页日志
+    await loadTaskLogsPage(taskId, 1);
+}
+
+// ========== 钩子配置相关函数 ==========
+
+// 当前激活的钩子标签
+let currentHookTab = 'before_execute';
+
+/**
+ * 切换钩子标签
+ */
+function switchHookTab(hookType) {
+    currentHookTab = hookType;
+    
+    // 更新标签按钮样式
+    document.querySelectorAll('.hook-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.getAttribute('data-hook') === hookType) {
+            tab.classList.add('active');
+        }
+    });
+    
+    // 隐藏所有钩子面板
+    document.querySelectorAll('.hook-panel').forEach(panel => {
+        panel.style.display = 'none';
+    });
+    
+    // 显示当前选中的钩子面板
+    const panelMap = {
+        'before_execute': 'hookPanelBeforeExecute',
+        'after_success': 'hookPanelAfterSuccess',
+        'after_failure': 'hookPanelAfterFailure'
+    };
+    
+    const panelId = panelMap[hookType];
+    const panel = document.getElementById(panelId);
+    if (panel) {
+        panel.style.display = 'block';
+    }
+}
+
+/**
+ * 从任务对象加载钩子配置到表单
+ */
+function loadTaskHooksConfig(task) {
+    if (!task || !task.hooks_config) {
+        clearHooksForm();
+        return;
+    }
+    
+    let hooksConfig = {};
+    try {
+        hooksConfig = typeof task.hooks_config === 'string' 
+            ? JSON.parse(task.hooks_config) 
+            : task.hooks_config;
+    } catch (e) {
+        console.error('解析钩子配置失败:', e);
+        clearHooksForm();
+        return;
+    }
+    
+    // 加载各个钩子类型的配置
+    const hookTypes = [
+        { key: 'before_execute', prefix: 'hookBeforeExecute' },
+        { key: 'after_success', prefix: 'hookAfterSuccess' },
+        { key: 'after_failure', prefix: 'hookAfterFailure' }
+    ];
+    
+    hookTypes.forEach(({ key, prefix }) => {
+        const config = hooksConfig[key];
+        if (config) {
+            const enabledCheckbox = document.getElementById(`${prefix}Enabled`);
+            const scriptTypeSelect = document.getElementById(`${prefix}ScriptType`);
+            const scriptTextarea = document.getElementById(`${prefix}Script`);
+            const timeoutInput = document.getElementById(`${prefix}Timeout`);
+            
+            if (enabledCheckbox) enabledCheckbox.checked = config.enabled || false;
+            if (scriptTypeSelect) scriptTypeSelect.value = config.script_type || 'python';
+            if (scriptTextarea) scriptTextarea.value = config.script || '';
+            if (timeoutInput) timeoutInput.value = config.timeout || 30;
+        }
+    });
+}
+
+/**
+ * 清空钩子表单
+ */
+function clearHooksForm() {
+    const hookTypes = ['hookBeforeExecute', 'hookAfterSuccess', 'hookAfterFailure'];
+    
+    hookTypes.forEach(prefix => {
+        const enabledCheckbox = document.getElementById(`${prefix}Enabled`);
+        const scriptTypeSelect = document.getElementById(`${prefix}ScriptType`);
+        const scriptTextarea = document.getElementById(`${prefix}Script`);
+        const timeoutInput = document.getElementById(`${prefix}Timeout`);
+        
+        if (enabledCheckbox) enabledCheckbox.checked = false;
+        if (scriptTypeSelect) scriptTypeSelect.value = 'python';
+        if (scriptTextarea) scriptTextarea.value = '';
+        if (timeoutInput) timeoutInput.value = 30;
+    });
+}
+
+/**
+ * 收集钩子配置（从表单）
+ */
+function collectHooksConfig() {
+    const hookTypes = [
+        { key: 'before_execute', prefix: 'hookBeforeExecute' },
+        { key: 'after_success', prefix: 'hookAfterSuccess' },
+        { key: 'after_failure', prefix: 'hookAfterFailure' }
+    ];
+    
+    const hooksConfig = {};
+    
+    hookTypes.forEach(({ key, prefix }) => {
+        const enabled = document.getElementById(`${prefix}Enabled`)?.checked || false;
+        const scriptType = document.getElementById(`${prefix}ScriptType`)?.value || 'python';
+        const script = document.getElementById(`${prefix}Script`)?.value || '';
+        const timeout = parseInt(document.getElementById(`${prefix}Timeout`)?.value) || 30;
+        
+        if (enabled || script) {
+            hooksConfig[key] = {
+                enabled,
+                script_type: scriptType,
+                script,
+                timeout
+            };
+        }
+    });
+    
+    return hooksConfig;
+}
+
+/**
+ * 保存钩子配置到服务器
+ */
+async function saveHooksConfig(taskId, hooksConfig) {
+    try {
+        const response = await fetch(`${API_BASE}/tasks/${taskId}/hooks`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ hooks_config: hooksConfig })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            return { success: true, data: result };
+        } else {
+            return { success: false, error: result.error || '保存失败' };
+        }
+    } catch (error) {
+        console.error('保存钩子配置失败:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * 测试当前激活的钩子
+ */
+async function testCurrentHook() {
+    const taskId = document.getElementById('editTaskId')?.value;
+    if (!taskId) {
+        showNotification('请先保存任务后再测试钩子', 'warning');
+        return;
+    }
+    
+    // 收集当前钩子配置
+    const hooksConfig = collectHooksConfig();
+    const currentConfig = hooksConfig[currentHookTab];
+    
+    if (!currentConfig || !currentConfig.script) {
+        showNotification('请先编写钩子脚本', 'warning');
+        return;
+    }
+    
+    showNotification('正在测试钩子...', 'info');
+    
+    // 测试钩子
+    try {
+        const response = await fetch(`${API_BASE}/tasks/${taskId}/hooks/test`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                hook_type: currentHookTab,
+                script_type: currentConfig.script_type,
+                script: currentConfig.script,
+                timeout: currentConfig.timeout
+            })
+        });
+
+        // 检查响应状态
+        if (!response.ok) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const result = await response.json();
+                showNotification(`❌ 测试失败: ${result.error || '请求失败'}`, 'error');
+            } else {
+                const text = await response.text();
+                console.error('API返回非JSON响应:', text);
+                showNotification(`❌ 测试失败: HTTP ${response.status} - 请检查任务是否存在或刷新页面重试`, 'error');
+            }
+            return;
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            let message = `✅ ${currentHookTab} 测试成功`;
+            if (result.output) {
+                message += `\n\n输出:\n${result.output.substring(0, 500)}`;
+                console.log(`完整输出:`, result.output);
+            }
+            showNotification(message, 'success');
+        } else {
+            const error = result.error || '未知错误';
+            showNotification(`❌ 测试失败: ${error}`, 'error');
+            console.error(`测试错误:`, result);
+        }
+    } catch (error) {
+        showNotification(`❌ 测试异常: ${error.message}`, 'error');
+        console.error(`测试异常详情:`, error);
+    }
+}
+
+/**
+ * 查看钩子执行日志（模态框方式）
+ */
+async function viewHookLogsModal() {
+    const taskId = document.getElementById('editTaskId')?.value;
+    if (!taskId) {
+        showNotification('无法获取任务ID', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/tasks/${taskId}/hooks/logs?page=1&page_size=20`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            // 显示日志
+            const logsHtml = data.logs.map(log => {
+                const statusIcon = {
+                    'success': '✅',
+                    'failed': '❌',
+                    'timeout': '⏱️',
+                    'skipped': '⏭️'
+                }[log.status] || '❓';
+                
+                return `
+                    <div class="hook-log-item">
+                        <div class="hook-log-header">
+                            <span class="hook-log-type">${log.hook_type}</span>
+                            <span class="hook-log-status">${statusIcon} ${log.status}</span>
+                            <span class="hook-log-time">${log.execution_start}</span>
+                        </div>
+                        <div class="hook-log-details">
+                            <div><strong>脚本类型:</strong> ${log.script_type}</div>
+                            <div><strong>执行时长:</strong> ${log.execution_duration ? log.execution_duration.toFixed(2) + 's' : 'N/A'}</div>
+                            ${log.output ? `<div><strong>输出:</strong><pre>${log.output.substring(0, 200)}</pre></div>` : ''}
+                            ${log.error_message ? `<div class="error"><strong>错误:</strong> ${log.error_message}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            alert(`钩子执行日志 (最近 20 条):\n\n${data.logs.length > 0 ? '见控制台详细信息' : '暂无日志'}`);
+            console.log('钩子执行日志:', data.logs);
+        } else {
+            showNotification('获取日志失败: ' + data.error, 'error');
+        }
+    } catch (error) {
+        showNotification('获取日志失败: ' + error.message, 'error');
     }
     
     // 显示模态框
