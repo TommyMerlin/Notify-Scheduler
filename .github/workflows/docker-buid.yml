@@ -4,11 +4,13 @@ on:
   push:
     branches:
       - master
+      - dev
     tags:
       - 'v*'
   pull_request:
     branches:
       - master
+      - dev
 
 jobs:
   build-and-push:
@@ -43,11 +45,19 @@ jobs:
           # 清理版本号（移除引号和v前缀）
           CLEAN_VERSION=$(echo "$RAW_VERSION" | tr -d '\"'"'" | sed 's/^v//')
           
-          # 验证版本格式 (x.y.z)
-          if [[ ! "$CLEAN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "❌ 错误：版本号格式无效，应为 x.y.z（例如 1.0.1）"
+          # 验证版本格式 (x.y.z, x.y.z-dev, 或 dev)
+          if [[ ! "$CLEAN_VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+(-dev)?|dev)$ ]]; then
+            echo "❌ 错误：版本号格式无效，应为 x.y.z、x.y.z-dev 或 dev（例如 1.0.1、1.0.1-dev 或 dev）"
             echo "当前值: '$CLEAN_VERSION'"
             exit 1
+          fi
+
+          # 检查是否为dev版本
+          if [[ "$CLEAN_VERSION" == *"dev"* ]]; then
+            echo "⚠️ 检测到dev版本，将不推送latest标签"
+            echo "is_dev=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_dev=false" >> $GITHUB_OUTPUT
           fi
 
           echo "✅ 版本号: $CLEAN_VERSION"
@@ -64,21 +74,33 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
-      # 5. 构建并推送 Docker 镜像
-      - name: Build and push
+      # 5. 构建并推送 Docker 镜像（带版本标签）
+      - name: Build and push with version tag
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: |
-            7ommymerlin/notify-scheduler:${{ steps.version.outputs.version }}
-            7ommymerlin/notify-scheduler:latest
+          tags: 7ommymerlin/notify-scheduler:${{ steps.version.outputs.version }}
 
-      # 6. 验证推送结果
+      # 6. 推送 latest 标签（仅非dev版本）
+      - name: Push latest tag
+        if: steps.version.outputs.is_dev == 'false'
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: 7ommymerlin/notify-scheduler:latest
+
+      # 7. 验证推送结果
       - name: Verify pushed tags
         run: |
           echo "✅ 镜像已成功推送至 Docker Hub"
           echo "📦 镜像标签:"
           echo "  - 7ommymerlin/notify-scheduler:${{ steps.version.outputs.version }}"
-          echo "  - 7ommymerlin/notify-scheduler:latest"
+          if [ "${{ steps.version.outputs.is_dev }}" == "false" ]; then
+            echo "  - 7ommymerlin/notify-scheduler:latest"
+          else
+            echo "  ⚠️ dev版本，未推送latest标签"
+          fi
