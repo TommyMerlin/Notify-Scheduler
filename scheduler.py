@@ -89,7 +89,7 @@ def execute_task(task_id: int):
             # 重复执行检测 - 检查最近3秒内是否有相同任务执行
             recent_logs = db.query(TaskExecutionLog).filter(
                 TaskExecutionLog.task_id == task_id,
-                TaskExecutionLog.execution_start >= execution_start - timedelta(seconds=3),
+                TaskExecutionLog.execution_start >= execution_start - timedelta(seconds=10),
                 TaskExecutionLog.status.in_(['started', 'success'])
             ).all()
             
