@@ -50,6 +50,9 @@
 ### 监控与日志
 - 📈 **执行日志**: 详细的任务执行日志记录
 - 📊 **统计信息**: 成功率、失败次数等统计数据
+- 🔍 **重复检测**: 自动检测并防止任务重复执行
+- 🚨 **智能告警**: 任务失败、重复执行等异常情况自动告警
+- 🎯 **健康监控**: 系统状态、Worker进程、调度器健康检查
 
 ### API 与集成
 - 🔌 **RESTful API**: 完整的 HTTP API 接口
@@ -321,6 +324,9 @@ gunicorn -c gunicorn_config.py app:app  # 生产模式
 - `GET /api/logs` - 查询执行日志
 - `GET /api/scheduler/jobs` - 获取调度器任务状态
 - `GET /api/health` - 系统健康检查
+- `GET /api/monitoring/duplicate-executions` - 获取重复执行统计
+- `GET /api/monitoring/execution-stats` - 获取任务执行统计
+- `GET /api/monitoring/system-health` - 获取系统健康状态（含worker检测）
 
 ### 告警规则
 

@@ -1860,8 +1860,212 @@ def import_data():
         return jsonify({'error': f'导入失败: {str(e)}'}), 500
 
 
+# ============ 监控与统计 API ============
+
+@app.route('/api/monitoring/duplicate-executions', methods=['GET'])
+@login_required
+def get_duplicate_execution_stats():
+    """获取重复执行统计
+    
+    查询参数:
+    - hours: 统计时间范围（小时），默认24小时
+    - task_id: 可选，指定任务ID
+    """
+    try:
+        from models import TaskExecutionLog
+        from datetime import timedelta
+        
+        hours = int(request.args.get('hours', 24))
+        task_id = request.args.get('task_id', type=int)
+        
+        with get_db() as db:
+            # 获取用户的所有任务ID
+            user_task_ids = [t.id for t in db.query(NotifyTask).filter(
+                NotifyTask.user_id == request.current_user.id
+            ).all()]
+            
+            if not user_task_ids:
+                return jsonify({
+                    'total_duplicates': 0,
+                    'time_range': f'{hours}小时',
+                    'tasks': []
+                })
+            
+            # 构建查询
+            query = db.query(TaskExecutionLog).filter(
+                TaskExecutionLog.task_id.in_(user_task_ids),
+                TaskExecutionLog.is_duplicate == True,
+                TaskExecutionLog.execution_start >= datetime.now() - timedelta(hours=hours)
+            )
+            
+            if task_id:
+                query = query.filter(TaskExecutionLog.task_id == task_id)
+            
+            duplicate_logs = query.all()
+            
+            # 按任务ID分组统计
+            task_stats = {}
+            for log in duplicate_logs:
+                if log.task_id not in task_stats:
+                    task = db.query(NotifyTask).filter(NotifyTask.id == log.task_id).first()
+                    task_stats[log.task_id] = {
+                        'task_id': log.task_id,
+                        'task_title': task.title if task else '未知任务',
+                        'duplicate_count': 0,
+                        'recent_duplicates': []
+                    }
+                
+                task_stats[log.task_id]['duplicate_count'] += 1
+                task_stats[log.task_id]['recent_duplicates'].append({
+                    'execution_start': log.execution_start.isoformat(),
+                    'worker_id': log.worker_id,
+                    'hostname': log.hostname
+                })
+            
+            return jsonify({
+                'total_duplicates': len(duplicate_logs),
+                'time_range': f'{hours}小时',
+                'affected_tasks': len(task_stats),
+                'tasks': list(task_stats.values())
+            })
+            
+    except Exception as e:
+        import traceback
+        logger.error(f'获取重复执行统计失败: {traceback.format_exc()}')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/monitoring/execution-stats', methods=['GET'])
+@login_required
+def get_execution_stats():
+    """获取任务执行统计
+    
+    查询参数:
+    - hours: 统计时间范围（小时），默认24小时
+    """
+    try:
+        from models import TaskExecutionLog
+        from datetime import timedelta
+        from sqlalchemy import func
+        
+        hours = int(request.args.get('hours', 24))
+        
+        with get_db() as db:
+            # 获取用户的所有任务ID
+            user_task_ids = [t.id for t in db.query(NotifyTask).filter(
+                NotifyTask.user_id == request.current_user.id
+            ).all()]
+            
+            if not user_task_ids:
+                return jsonify({
+                    'time_range': f'{hours}小时',
+                    'total_executions': 0,
+                    'success': 0,
+                    'failed': 0,
+                    'skipped': 0,
+                    'duplicate_rate': 0
+                })
+            
+            # 统计总执行次数
+            time_threshold = datetime.now() - timedelta(hours=hours)
+            
+            stats = db.query(
+                TaskExecutionLog.status,
+                func.count(TaskExecutionLog.id).label('count')
+            ).filter(
+                TaskExecutionLog.task_id.in_(user_task_ids),
+                TaskExecutionLog.execution_start >= time_threshold
+            ).group_by(TaskExecutionLog.status).all()
+            
+            status_counts = {status: count for status, count in stats}
+            total = sum(status_counts.values())
+            
+            # 重复执行统计
+            duplicate_count = db.query(func.count(TaskExecutionLog.id)).filter(
+                TaskExecutionLog.task_id.in_(user_task_ids),
+                TaskExecutionLog.is_duplicate == True,
+                TaskExecutionLog.execution_start >= time_threshold
+            ).scalar() or 0
+            
+            return jsonify({
+                'time_range': f'{hours}小时',
+                'total_executions': total,
+                'success': status_counts.get('success', 0),
+                'failed': status_counts.get('failed', 0),
+                'started': status_counts.get('started', 0),
+                'skipped': status_counts.get('skipped', 0),
+                'duplicate_count': duplicate_count,
+                'duplicate_rate': round(duplicate_count / total * 100, 2) if total > 0 else 0,
+                'success_rate': round(status_counts.get('success', 0) / total * 100, 2) if total > 0 else 0
+            })
+            
+    except Exception as e:
+        import traceback
+        logger.error(f'获取执行统计失败: {traceback.format_exc()}')
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/monitoring/system-health', methods=['GET'])
+@login_required
+def get_system_health():
+    """获取系统健康状态"""
+    try:
+        from models import TaskExecutionLog
+        from datetime import timedelta
+        import multiprocessing
+        
+        with get_db() as db:
+            # 检查最近15分钟的执行情况
+            recent_threshold = datetime.now() - timedelta(minutes=15)
+            
+            recent_logs = db.query(TaskExecutionLog).filter(
+                TaskExecutionLog.execution_start >= recent_threshold
+            ).all()
+            
+            # 检测worker数量（通过不同的worker_id统计）
+            worker_ids = set(log.worker_id for log in recent_logs if log.worker_id)
+            
+            # 检测是否有重复执行
+            duplicate_count = sum(1 for log in recent_logs if log.is_duplicate)
+            
+            # 检测调度器状态
+            scheduler_running = scheduler.is_running()
+            
+            # 判断健康状态
+            health_status = 'healthy'
+            warnings = []
+            
+            if len(worker_ids) > 1:
+                warnings.append(f'检测到{len(worker_ids)}个worker进程，可能导致任务重复执行')
+                health_status = 'warning'
+            
+            if duplicate_count > 0:
+                warnings.append(f'最近15分钟检测到{duplicate_count}次重复执行')
+                health_status = 'warning'
+            
+            if not scheduler_running:
+                warnings.append('调度器未运行')
+                health_status = 'critical'
+            
+            return jsonify({
+                'status': health_status,
+                'scheduler_running': scheduler_running,
+                'worker_count': len(worker_ids),
+                'worker_ids': list(worker_ids),
+                'recent_duplicate_count': duplicate_count,
+                'warnings': warnings,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+    except Exception as e:
+        import traceback
+        logger.error(f'获取系统健康状态失败: {traceback.format_exc()}')
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     try:
         app.run(host='0.0.0.0', port=8080, debug=True)
     except KeyboardInterrupt:
         scheduler.shutdown()
+

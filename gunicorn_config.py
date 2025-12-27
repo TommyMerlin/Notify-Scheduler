@@ -4,8 +4,9 @@ import multiprocessing
 # 绑定地址和端口
 bind = "0.0.0.0:5000"
 
-# 工作进程数
-workers = multiprocessing.cpu_count() * 2 + 1
+# 工作进程数 - 设为1避免多进程导致任务调度器重复初始化
+# 如需提高并发处理能力，建议使用独立的调度进程或分布式任务队列（如Celery）
+workers = 1
 
 # 工作模式
 worker_class = "sync"

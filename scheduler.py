@@ -76,8 +76,9 @@ def execute_task(task_id: int):
     
     with get_db() as db:
         try:
-            # 获取任务
-            task = db.query(NotifyTask).filter(NotifyTask.id == task_id).first()
+            # 使用数据库行级锁获取任务，防止并发执行（悲观锁）
+            # with_for_update() 会在当前事务中锁定该行，直到事务提交或回滚
+            task = db.query(NotifyTask).filter(NotifyTask.id == task_id).with_for_update().first()
             if not task:
                 logger.error(f"任务 {task_id} 不存在")
                 return
@@ -87,7 +88,8 @@ def execute_task(task_id: int):
             # 生成重复检测键（精确到秒）
             duplicate_check_key = f"{task_id}_{execution_start.strftime('%Y%m%d%H%M%S')}"
             
-            # 重复执行检测 - 检查最近3秒内是否有相同任务执行
+            # 重复执行检测 - 在同一事务中检查最近3秒内是否有相同任务执行
+            # 由于使用了行锁，这里的检查更可靠，避免竞态条件
             recent_logs = db.query(TaskExecutionLog).filter(
                 TaskExecutionLog.task_id == task_id,
                 TaskExecutionLog.execution_start >= execution_start - timedelta(seconds=3),
@@ -96,8 +98,24 @@ def execute_task(task_id: int):
             
             is_duplicate = len(recent_logs) > 0
             if is_duplicate:
-                logger.warning(f"⚠️ 检测到任务 {task_id} 重复执行（最近3秒内已执行），本次跳过")
-                # 不记录跳过的日志，直接返回
+                logger.warning(f"⚠️ 检测到任务 {task_id} 重复执行（最近3秒内已执行 {len(recent_logs)} 次），本次跳过")
+                
+                # 记录重复执行日志（用于监控统计）
+                duplicate_log = TaskExecutionLog(
+                    task_id=task_id,
+                    job_id=job_id,
+                    execution_start=execution_start,
+                    execution_end=datetime.now(),
+                    execution_duration=0,
+                    status='skipped',
+                    result_summary='检测到重复执行，已跳过',
+                    worker_id=worker_id,
+                    hostname=hostname,
+                    duplicate_check_key=duplicate_check_key,
+                    is_duplicate=True
+                )
+                db.add(duplicate_log)
+                db.commit()
                 
                 # 触发告警
                 try:
@@ -413,6 +431,7 @@ def check_and_alert(task_id: int, alert_type: str, db_session):
                 time_window = params.get('time_window', 300)  # 默认5分钟
                 threshold = params.get('threshold', 2)
                 
+                # 统计重复执行次数（status='skipped' 且 is_duplicate=True）
                 recent_duplicates = db_session.query(TaskExecutionLog).filter(
                     TaskExecutionLog.task_id == task_id,
                     TaskExecutionLog.is_duplicate == True,
@@ -420,7 +439,8 @@ def check_and_alert(task_id: int, alert_type: str, db_session):
                 ).count()
                 
                 if recent_duplicates >= threshold:
-                    send_alert(rule, task, f"任务在{time_window}秒内重复执行{recent_duplicates}次", db_session)
+                    logger.warning(f"📊 告警触发: 任务 {task_id} 在{time_window}秒内检测到{recent_duplicates}次重复执行")
+                    send_alert(rule, task, f"任务 '{task.title}' 在{time_window}秒内检测到{recent_duplicates}次重复执行，可能存在多进程调度问题", db_session)
             
             elif alert_type == 'execution_failure':
                 # 检查失败率
