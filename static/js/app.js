@@ -4,6 +4,67 @@ let currentUser = null;
 let userChannels = [];
 let eventSource = null;
 
+// 防抖函数
+function debounce(func, delay) {
+    let timeoutId;
+    return function(...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func.apply(this, args), delay);
+    };
+}
+
+// 预览Cron表达式的未来执行时间
+async function previewCronExpression(expression) {
+    const previewContainer = document.getElementById('cronPreview');
+    if (!previewContainer) return;
+    
+    // 空值处理：清空预览区域
+    if (!expression) {
+        previewContainer.innerHTML = '';
+        previewContainer.className = 'cron-preview';
+        return;
+    }
+    
+    try {
+        const token = localStorage.getItem('token');
+        // 转换星期位：前端输入5表示星期五，需要转换为后端格式
+        const convertedExpression = convertCronExpressionForBackend(expression);
+        const response = await fetch(`${API_BASE}/cron/preview`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ cron_expression: convertedExpression })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.times && data.times.length > 0) {
+            // 显示成功预览
+            previewContainer.className = 'cron-preview success';
+            previewContainer.innerHTML = `
+                <div class="preview-title">📅 未来5次执行时间：</div>
+                <ul class="preview-times">
+                    ${data.times.map((time, index) => `<li>${index + 1}. ${time}</li>`).join('')}
+                </ul>
+            `;
+        } else {
+            // 显示错误提示
+            previewContainer.className = 'cron-preview error';
+            previewContainer.innerHTML = `
+                <div class="preview-error">❌ ${data.error || '无法计算执行时间'}</div>
+            `;
+        }
+    } catch (error) {
+        // 网络或其他错误
+        previewContainer.className = 'cron-preview error';
+        previewContainer.innerHTML = `
+            <div class="preview-error">❌ 预览失败，请稍后重试</div>
+        `;
+    }
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
     checkAuthStatus();
@@ -400,6 +461,15 @@ function initAppEvents() {
             }
         }
     });
+    
+    // Cron表达式输入事件监听（带防抖）
+    const cronInput = document.getElementById('cronExpression');
+    if (cronInput) {
+        cronInput.addEventListener('input', debounce(async function(e) {
+            const expression = e.target.value.trim();
+            await previewCronExpression(expression);
+        }, 300));
+    }
     
     // 绑定外部日历表单
     const extCalForm = document.getElementById('externalCalendarForm');

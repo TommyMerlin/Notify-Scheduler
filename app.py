@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory, Response, make_response
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, timezone
 from models import init_db, get_db, NotifyTask, NotifyChannel, NotifyStatus, User, UserChannel, ExternalCalendar
 from scheduler import scheduler, get_cron_trigger, event_manager
 from auth import login_required, admin_required, user_login, user_register, update_user_profile
@@ -251,6 +251,76 @@ def create_task():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/cron/preview', methods=['POST'])
+@login_required
+def preview_cron():
+    """
+    预览 Cron 表达式的未来执行时间
+    
+    请求参数:
+    - cron_expression: Cron 表达式字符串
+    
+    返回:
+    - success: 成功标志
+    - times: 未来5次执行时间列表（格式: 2025-12-27 14:30:00）
+    - error: 错误信息（如果有）
+    """
+    try:
+        data = request.get_json()
+        cron_expression = data.get('cron_expression', '').strip()
+        
+        if not cron_expression:
+            return jsonify({
+                'success': False,
+                'error': 'Cron表达式不能为空'
+            }), 400
+        
+        try:
+            # 使用现有的 get_cron_trigger 函数获取触发器
+            trigger = get_cron_trigger(cron_expression)
+            
+            # 计算未来5次执行时间
+            times = []
+            # 使用本地时区的当前时间
+            import pytz
+            local_tz = pytz.timezone('Asia/Shanghai')
+            base_time = datetime.now(local_tz)
+            previous_time = None
+            
+            for _ in range(5):
+                next_time = trigger.get_next_fire_time(previous_time, base_time)
+                if not next_time:
+                    break
+                # 格式化为字符串: 2025-12-27 14:30:00
+                times.append(next_time.strftime('%Y-%m-%d %H:%M:%S'))
+                # 重要：更新previous_time和base_time，确保下次循环计算的是之后的时间
+                previous_time = next_time
+                base_time = next_time
+            
+            if not times:
+                return jsonify({
+                    'success': False,
+                    'error': '无法计算执行时间，请检查Cron表达式'
+                }), 400
+            
+            return jsonify({
+                'success': True,
+                'times': times
+            }), 200
+            
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'Cron表达式格式错误: {str(e)}'
+            }), 400
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @app.route('/api/tasks', methods=['GET'])
