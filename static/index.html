@@ -113,6 +113,7 @@
                     <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="importData(event)">
                     <button id="openCalendarBtn" class="btn btn-sm btn-ghost" onclick="openCalendarView()">📅 日历</button>
                     <button id="syncBtn" class="btn btn-sm btn-ghost" onclick="openSyncModal()">🔄 订阅</button>
+                    <button class="settings-btn" onclick="openUserSettingsModal()">⚙️ 设置</button>
                     <button class="logout-btn" onclick="logout()">退出</button>
                 </div>
             </header>
@@ -477,6 +478,48 @@
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button type="submit" class="btn btn-primary" style="flex: 1;">保存修改</button>
                     <button type="button" class="btn btn-danger" onclick="closeEditTaskModal()" style="flex: 1;">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 用户设置模态框 -->
+    <div id="userSettingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeUserSettingsModal()">&times;</span>
+            <h2>⚙️ 用户设置</h2>
+            <form id="userSettingsForm" onsubmit="handleUserSettingsSubmit(event)">
+                <div class="form-group">
+                    <label for="settingsUsername">用户名 *</label>
+                    <input type="text" id="settingsUsername" name="username" maxlength="50" placeholder="请输入用户名" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="settingsEmail">邮箱 *</label>
+                    <input type="email" id="settingsEmail" name="email" placeholder="请输入邮箱" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="settingsOldPassword">旧密码</label>
+                    <input type="password" id="settingsOldPassword" name="old_password" placeholder="仅修改密码时需要填写">
+                    <small class="form-hint">仅在修改密码时需要填写</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="settingsNewPassword">新密码</label>
+                    <input type="password" id="settingsNewPassword" name="new_password" minlength="8" placeholder="留空表示不修改，最少8位">
+                    <small class="form-hint">留空表示不修改密码，修改时最少8位</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="settingsConfirmPassword">确认新密码</label>
+                    <input type="password" id="settingsConfirmPassword" name="confirm_password" minlength="8" placeholder="再次输入新密码">
+                    <small class="form-hint">请再次输入新密码以确认</small>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeUserSettingsModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存设置</button>
                 </div>
             </form>
         </div>

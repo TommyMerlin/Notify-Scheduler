@@ -2819,3 +2819,151 @@ window.addEventListener('click', function(event) {
         closeLogsModal();
     }
 });
+// ============= 用户设置功能 =============
+
+// 打开用户设置模态框
+async function openUserSettingsModal() {
+    try {
+        // 获取当前用户信息
+        const response = await fetch(`${API_BASE}/auth/profile`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const user = data.user;
+            
+            // 填充表单
+            document.getElementById('settingsUsername').value = user.username || '';
+            document.getElementById('settingsEmail').value = user.email || '';
+            document.getElementById('settingsOldPassword').value = '';
+            document.getElementById('settingsNewPassword').value = '';
+            document.getElementById('settingsConfirmPassword').value = '';
+            
+            // 显示模态框
+            document.getElementById('userSettingsModal').style.display = 'block';
+        } else {
+            const error = await response.json();
+            showNotification(error.error || '获取用户信息失败', 'error');
+        }
+    } catch (error) {
+        console.error('打开用户设置失败:', error);
+        showNotification('打开用户设置失败', 'error');
+    }
+}
+
+// 关闭用户设置模态框
+function closeUserSettingsModal() {
+    document.getElementById('userSettingsModal').style.display = 'none';
+    // 清空密码字段
+    document.getElementById('settingsOldPassword').value = '';
+    document.getElementById('settingsNewPassword').value = '';
+    document.getElementById('settingsConfirmPassword').value = '';
+}
+
+// 处理用户设置提交
+async function handleUserSettingsSubmit(event) {
+    event.preventDefault();
+    
+    const username = document.getElementById('settingsUsername').value.trim();
+    const email = document.getElementById('settingsEmail').value.trim();
+    const oldPassword = document.getElementById('settingsOldPassword').value;
+    const newPassword = document.getElementById('settingsNewPassword').value;
+    const confirmPassword = document.getElementById('settingsConfirmPassword').value;
+    
+    // 验证用户名和邮箱
+    if (!username) {
+        showNotification('用户名不能为空', 'error');
+        return;
+    }
+    
+    if (!email) {
+        showNotification('邮箱不能为空', 'error');
+        return;
+    }
+    
+    // 验证邮箱格式
+    if (!email.includes('@')) {
+        showNotification('请输入有效的邮箱地址', 'error');
+        return;
+    }
+    
+    // 构建更新数据
+    const updateData = {
+        username: username,
+        email: email
+    };
+    
+    // 如果填写了新密码，进行密码相关验证
+    if (newPassword) {
+        // 验证新密码长度
+        if (newPassword.length < 8) {
+            showNotification('新密码长度至少8位', 'error');
+            return;
+        }
+        
+        // 验证确认密码
+        if (newPassword !== confirmPassword) {
+            showNotification('两次输入的新密码不一致', 'error');
+            return;
+        }
+        
+        // 验证是否填写旧密码
+        if (!oldPassword) {
+            showNotification('修改密码需要输入旧密码', 'error');
+            return;
+        }
+        
+        // 添加密码字段到更新数据
+        updateData.old_password = oldPassword;
+        updateData.new_password = newPassword;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/auth/profile`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            showNotification(result.message || '更新成功', 'success');
+            closeUserSettingsModal();
+            
+            // 更新页面显示的用户名
+            if (currentUser && updateData.username !== currentUser.username) {
+                currentUser.username = updateData.username;
+                document.getElementById('currentUsername').textContent = updateData.username;
+            }
+            
+            // 如果修改了密码，强制重新登录
+            if (result.data && result.data.password_changed) {
+                showNotification('密码已修改，请重新登录', 'info');
+                setTimeout(() => {
+                    logout();
+                }, 1500);
+            }
+        } else {
+            showNotification(result.error || '更新失败', 'error');
+        }
+    } catch (error) {
+        console.error('更新用户设置失败:', error);
+        showNotification('更新用户设置失败', 'error');
+    }
+}
+
+// 点击模态框外部关闭用户设置
+window.addEventListener('click', function(event) {
+    const userSettingsModal = document.getElementById('userSettingsModal');
+    if (event.target === userSettingsModal) {
+        closeUserSettingsModal();
+    }
+});

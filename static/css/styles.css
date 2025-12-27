@@ -223,6 +223,22 @@ header p {
     transform: translateY(-2px);
 }
 
+/* 设置按钮样式 */
+.settings-btn {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: none;
+    padding: 6px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.3s, transform 0.3s;
+}
+
+.settings-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+
 .main-content {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
@@ -358,6 +374,15 @@ header p {
 .form-group textarea {
     min-height: 100px;
     resize: vertical;
+}
+
+/* 表单提示文字样式 */
+.form-hint {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.9em;
+    color: #666;
+    line-height: 1.5;
 }
 
 .config-fields {

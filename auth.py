@@ -135,22 +135,56 @@ def update_user_profile(user_id, data):
         if not user:
             return None, '用户不存在'
 
-        # 更新允许的字段
-        if 'email' in data:
+        password_changed = False
+
+        # 更新用户名
+        if 'username' in data and data['username'] != user.username:
+            # 检查用户名是否已被其他用户使用
+            existing_user = db.query(User).filter(
+                User.username == data['username'],
+                User.id != user_id
+            ).first()
+            if existing_user:
+                return None, '用户名已存在'
+            user.username = data['username']
+
+        # 更新邮箱
+        if 'email' in data and data['email'] != user.email:
             # 检查邮箱是否已被其他用户使用
             existing_user = db.query(User).filter(
                 User.email == data['email'],
                 User.id != user_id
             ).first()
             if existing_user:
-                return None, '邮箱已被使用'
+                return None, '邮箱已存在'
             user.email = data['email']
 
-        if 'password' in data:
-            user.set_password(data['password'])
+        # 更新密码（需要验证旧密码）
+        if 'new_password' in data and data['new_password']:
+            # 验证新密码长度
+            if len(data['new_password']) < 8:
+                return None, '新密码长度至少8位'
+            
+            # 验证旧密码
+            old_password = data.get('old_password', '')
+            if not old_password:
+                return None, '修改密码需要提供旧密码'
+            
+            if not user.check_password(old_password):
+                return None, '旧密码错误'
+            
+            # 更新密码
+            user.set_password(data['new_password'])
+            password_changed = True
 
         db.commit()
 
-        return {
+        result = {
             'user': user.to_dict()
-        }, None
+        }
+        
+        # 如果修改了密码，返回标识
+        if password_changed:
+            result['password_changed'] = True
+
+        return result, None
