@@ -10,9 +10,6 @@ import os
 import jwt
 import secrets
 import uuid
-import logging
-
-logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='static')
 CORS(app)  # 启用跨域支持
@@ -936,181 +933,6 @@ def get_all_execution_logs():
         return jsonify({'error': str(e)}), 500
 
 
-# 钩子管理相关API
-@app.route('/api/tasks/<int:task_id>/hooks', methods=['PUT'])
-@login_required
-def update_task_hooks(task_id):
-    """更新任务钩子配置"""
-    try:
-        import json
-        
-        data = request.get_json()
-        hooks_config = data.get('hooks_config', {})
-        
-        # 验证钩子配置
-        valid_hook_types = ['before_execute', 'after_success', 'after_failure']
-        valid_script_types = ['python', 'shell']
-        
-        for hook_type, config in hooks_config.items():
-            if hook_type not in valid_hook_types:
-                return jsonify({'error': f'无效的钩子类型: {hook_type}'}), 400
-            
-            if not isinstance(config, dict):
-                continue
-            
-            script_type = config.get('script_type')
-            if script_type and script_type not in valid_script_types:
-                return jsonify({'error': f'无效的脚本类型: {script_type}'}), 400
-            
-            timeout = config.get('timeout', 30)
-            if not isinstance(timeout, (int, float)) or timeout < 1 or timeout > 300:
-                return jsonify({'error': 'timeout 必须在 1-300 秒之间'}), 400
-        
-        with get_db() as db:
-            # 验证任务所属
-            task = db.query(NotifyTask).filter(
-                NotifyTask.id == task_id,
-                NotifyTask.user_id == request.current_user.id
-            ).first()
-            if not task:
-                return jsonify({'error': '任务不存在'}), 404
-            
-            # 更新钩子配置
-            task.hooks_config = json.dumps(hooks_config, ensure_ascii=False)
-            db.commit()
-            
-            return jsonify({
-                'success': True,
-                'message': '钩子配置已更新'
-            })
-    except Exception as e:
-        logger.error(f"更新钩子配置失败: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/tasks/<int:task_id>/hooks/logs', methods=['GET'])
-@login_required
-def get_task_hook_logs(task_id):
-    """获取任务钩子执行日志"""
-    try:
-        from models import HookExecutionLog
-        
-        with get_db() as db:
-            # 验证任务所属
-            task = db.query(NotifyTask).filter(
-                NotifyTask.id == task_id,
-                NotifyTask.user_id == request.current_user.id
-            ).first()
-            if not task:
-                return jsonify({'error': '任务不存在'}), 404
-            
-            # 分页查询
-            page = int(request.args.get('page', 1))
-            page_size = int(request.args.get('page_size', 50))
-            hook_type = request.args.get('hook_type')  # 可选过滤
-            status = request.args.get('status')  # 可选过滤
-            
-            logs_query = db.query(HookExecutionLog).filter(
-                HookExecutionLog.task_id == task_id
-            )
-            
-            if hook_type:
-                logs_query = logs_query.filter(HookExecutionLog.hook_type == hook_type)
-            
-            if status:
-                logs_query = logs_query.filter(HookExecutionLog.status == status)
-            
-            logs_query = logs_query.order_by(HookExecutionLog.execution_start.desc())
-            
-            total = logs_query.count()
-            logs = logs_query.offset((page - 1) * page_size).limit(page_size).all()
-            
-            return jsonify({
-                'total': total,
-                'page': page,
-                'page_size': page_size,
-                'logs': [log.to_dict() for log in logs]
-            })
-    except Exception as e:
-        logger.error(f"获取钩子日志失败: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/tasks/<int:task_id>/hooks/test', methods=['POST'])
-@login_required
-def test_task_hook(task_id):
-    """测试钩子脚本"""
-    try:
-        import json
-        from hooks import execute_hook
-        
-        data = request.get_json()
-        hook_type = data.get('hook_type')
-        script_type = data.get('script_type', 'python')
-        script = data.get('script', '')
-        timeout = data.get('timeout', 30)
-        
-        if not hook_type or hook_type not in ['before_execute', 'after_success', 'after_failure']:
-            return jsonify({'error': '无效的钩子类型'}), 400
-        
-        if not script:
-            return jsonify({'error': '脚本内容不能为空'}), 400
-        
-        with get_db() as db:
-            # 验证任务所属
-            task = db.query(NotifyTask).filter(
-                NotifyTask.id == task_id,
-                NotifyTask.user_id == request.current_user.id
-            ).first()
-            if not task:
-                return jsonify({'error': '任务不存在'}), 404
-            
-            # 构造测试配置
-            test_hooks_config = {
-                hook_type: {
-                    'enabled': True,
-                    'script_type': script_type,
-                    'script': script,
-                    'timeout': timeout
-                }
-            }
-            
-            # 临时保存原配置
-            original_config = task.hooks_config
-            task.hooks_config = json.dumps(test_hooks_config, ensure_ascii=False)
-            
-            # 准备测试上下文
-            test_context = {}
-            if hook_type == 'after_success':
-                test_context = {'send_results': {'test': {'status': 'sent', 'message': '测试执行'}}}
-            elif hook_type == 'after_failure':
-                test_context = {'error': '测试错误', 'traceback': '测试堆栈'}
-            
-            # 执行测试
-            result = execute_hook(
-                hook_type=hook_type,
-                task_id=task_id,
-                task=task,
-                context=test_context,
-                db_session=db,
-                task_execution_log_id=None
-            )
-            
-            # 恢复原配置
-            task.hooks_config = original_config
-            db.commit()
-            
-            return jsonify({
-                'success': result.get('success', False),
-                'output': result.get('output', ''),
-                'error': result.get('error'),
-                'data': result.get('data')
-            })
-    except Exception as e:
-        logger.error(f"测试钩子失败: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-
 # 告警规则相关API
 @app.route('/api/alerts/rules', methods=['GET'])
 @login_required
@@ -1479,9 +1301,10 @@ def get_version():
         import re
         with open('version.yml', 'r', encoding='utf-8') as f:
             content = f.read()
-            match = re.search(r'version:\s*([\d\.]+)', content)
+            # 支持解析多种版本格式：1.0.0、1.0.0-dev、dev等
+            match = re.search(r'version:\s*(.+?)(?:\s|$)', content)
             if match:
-                version = match.group(1)
+                version = match.group(1).strip()
             else:
                 version = '0.0.0'
         return jsonify({'version': version}), 200
@@ -1498,14 +1321,29 @@ def check_version_update():
         
         # 获取当前版本
         current_version = '0.0.0'
+        is_dev_version = False
         try:
             with open('version.yml', 'r', encoding='utf-8') as f:
                 content = f.read()
-                match = re.search(r'version:\s*([\d\.]+)', content)
+                # 支持解析多种版本格式：1.0.0、1.0.0-dev、dev等
+                match = re.search(r'version:\s*(.+?)(?:\s|$)', content)
                 if match:
-                    current_version = match.group(1)
+                    full_version = match.group(1).strip()
+                    current_version = full_version
+                    # 检查是否为dev版本（包含-dev或纯dev）
+                    is_dev_version = 'dev' in full_version.lower()
         except:
             pass
+        
+        # dev版本不检查更新
+        if is_dev_version:
+            return jsonify({
+                'current_version': current_version,
+                'latest_version': current_version,
+                'update_available': False,
+                'is_dev': True,
+                'message': 'Dev version does not check for updates'
+            }), 200
         
         # 调用 GitHub API 获取最新 release
         response = requests.get(
@@ -1860,212 +1698,8 @@ def import_data():
         return jsonify({'error': f'导入失败: {str(e)}'}), 500
 
 
-# ============ 监控与统计 API ============
-
-@app.route('/api/monitoring/duplicate-executions', methods=['GET'])
-@login_required
-def get_duplicate_execution_stats():
-    """获取重复执行统计
-    
-    查询参数:
-    - hours: 统计时间范围（小时），默认24小时
-    - task_id: 可选，指定任务ID
-    """
-    try:
-        from models import TaskExecutionLog
-        from datetime import timedelta
-        
-        hours = int(request.args.get('hours', 24))
-        task_id = request.args.get('task_id', type=int)
-        
-        with get_db() as db:
-            # 获取用户的所有任务ID
-            user_task_ids = [t.id for t in db.query(NotifyTask).filter(
-                NotifyTask.user_id == request.current_user.id
-            ).all()]
-            
-            if not user_task_ids:
-                return jsonify({
-                    'total_duplicates': 0,
-                    'time_range': f'{hours}小时',
-                    'tasks': []
-                })
-            
-            # 构建查询
-            query = db.query(TaskExecutionLog).filter(
-                TaskExecutionLog.task_id.in_(user_task_ids),
-                TaskExecutionLog.is_duplicate == True,
-                TaskExecutionLog.execution_start >= datetime.now() - timedelta(hours=hours)
-            )
-            
-            if task_id:
-                query = query.filter(TaskExecutionLog.task_id == task_id)
-            
-            duplicate_logs = query.all()
-            
-            # 按任务ID分组统计
-            task_stats = {}
-            for log in duplicate_logs:
-                if log.task_id not in task_stats:
-                    task = db.query(NotifyTask).filter(NotifyTask.id == log.task_id).first()
-                    task_stats[log.task_id] = {
-                        'task_id': log.task_id,
-                        'task_title': task.title if task else '未知任务',
-                        'duplicate_count': 0,
-                        'recent_duplicates': []
-                    }
-                
-                task_stats[log.task_id]['duplicate_count'] += 1
-                task_stats[log.task_id]['recent_duplicates'].append({
-                    'execution_start': log.execution_start.isoformat(),
-                    'worker_id': log.worker_id,
-                    'hostname': log.hostname
-                })
-            
-            return jsonify({
-                'total_duplicates': len(duplicate_logs),
-                'time_range': f'{hours}小时',
-                'affected_tasks': len(task_stats),
-                'tasks': list(task_stats.values())
-            })
-            
-    except Exception as e:
-        import traceback
-        logger.error(f'获取重复执行统计失败: {traceback.format_exc()}')
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/monitoring/execution-stats', methods=['GET'])
-@login_required
-def get_execution_stats():
-    """获取任务执行统计
-    
-    查询参数:
-    - hours: 统计时间范围（小时），默认24小时
-    """
-    try:
-        from models import TaskExecutionLog
-        from datetime import timedelta
-        from sqlalchemy import func
-        
-        hours = int(request.args.get('hours', 24))
-        
-        with get_db() as db:
-            # 获取用户的所有任务ID
-            user_task_ids = [t.id for t in db.query(NotifyTask).filter(
-                NotifyTask.user_id == request.current_user.id
-            ).all()]
-            
-            if not user_task_ids:
-                return jsonify({
-                    'time_range': f'{hours}小时',
-                    'total_executions': 0,
-                    'success': 0,
-                    'failed': 0,
-                    'skipped': 0,
-                    'duplicate_rate': 0
-                })
-            
-            # 统计总执行次数
-            time_threshold = datetime.now() - timedelta(hours=hours)
-            
-            stats = db.query(
-                TaskExecutionLog.status,
-                func.count(TaskExecutionLog.id).label('count')
-            ).filter(
-                TaskExecutionLog.task_id.in_(user_task_ids),
-                TaskExecutionLog.execution_start >= time_threshold
-            ).group_by(TaskExecutionLog.status).all()
-            
-            status_counts = {status: count for status, count in stats}
-            total = sum(status_counts.values())
-            
-            # 重复执行统计
-            duplicate_count = db.query(func.count(TaskExecutionLog.id)).filter(
-                TaskExecutionLog.task_id.in_(user_task_ids),
-                TaskExecutionLog.is_duplicate == True,
-                TaskExecutionLog.execution_start >= time_threshold
-            ).scalar() or 0
-            
-            return jsonify({
-                'time_range': f'{hours}小时',
-                'total_executions': total,
-                'success': status_counts.get('success', 0),
-                'failed': status_counts.get('failed', 0),
-                'started': status_counts.get('started', 0),
-                'skipped': status_counts.get('skipped', 0),
-                'duplicate_count': duplicate_count,
-                'duplicate_rate': round(duplicate_count / total * 100, 2) if total > 0 else 0,
-                'success_rate': round(status_counts.get('success', 0) / total * 100, 2) if total > 0 else 0
-            })
-            
-    except Exception as e:
-        import traceback
-        logger.error(f'获取执行统计失败: {traceback.format_exc()}')
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/monitoring/system-health', methods=['GET'])
-@login_required
-def get_system_health():
-    """获取系统健康状态"""
-    try:
-        from models import TaskExecutionLog
-        from datetime import timedelta
-        import multiprocessing
-        
-        with get_db() as db:
-            # 检查最近15分钟的执行情况
-            recent_threshold = datetime.now() - timedelta(minutes=15)
-            
-            recent_logs = db.query(TaskExecutionLog).filter(
-                TaskExecutionLog.execution_start >= recent_threshold
-            ).all()
-            
-            # 检测worker数量（通过不同的worker_id统计）
-            worker_ids = set(log.worker_id for log in recent_logs if log.worker_id)
-            
-            # 检测是否有重复执行
-            duplicate_count = sum(1 for log in recent_logs if log.is_duplicate)
-            
-            # 检测调度器状态
-            scheduler_running = scheduler.is_running()
-            
-            # 判断健康状态
-            health_status = 'healthy'
-            warnings = []
-            
-            if len(worker_ids) > 1:
-                warnings.append(f'检测到{len(worker_ids)}个worker进程，可能导致任务重复执行')
-                health_status = 'warning'
-            
-            if duplicate_count > 0:
-                warnings.append(f'最近15分钟检测到{duplicate_count}次重复执行')
-                health_status = 'warning'
-            
-            if not scheduler_running:
-                warnings.append('调度器未运行')
-                health_status = 'critical'
-            
-            return jsonify({
-                'status': health_status,
-                'scheduler_running': scheduler_running,
-                'worker_count': len(worker_ids),
-                'worker_ids': list(worker_ids),
-                'recent_duplicate_count': duplicate_count,
-                'warnings': warnings,
-                'timestamp': datetime.now().isoformat()
-            })
-            
-    except Exception as e:
-        import traceback
-        logger.error(f'获取系统健康状态失败: {traceback.format_exc()}')
-        return jsonify({'error': str(e)}), 500
-
-
 if __name__ == '__main__':
     try:
         app.run(host='0.0.0.0', port=8080, debug=True)
     except KeyboardInterrupt:
         scheduler.shutdown()
-
