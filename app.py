@@ -10,6 +10,9 @@ import os
 import jwt
 import secrets
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='static')
 CORS(app)  # 启用跨域支持
@@ -930,6 +933,181 @@ def get_all_execution_logs():
                 'logs': [log.to_dict() for log in logs]
             })
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# 钩子管理相关API
+@app.route('/api/tasks/<int:task_id>/hooks', methods=['PUT'])
+@login_required
+def update_task_hooks(task_id):
+    """更新任务钩子配置"""
+    try:
+        import json
+        
+        data = request.get_json()
+        hooks_config = data.get('hooks_config', {})
+        
+        # 验证钩子配置
+        valid_hook_types = ['before_execute', 'after_success', 'after_failure']
+        valid_script_types = ['python', 'shell']
+        
+        for hook_type, config in hooks_config.items():
+            if hook_type not in valid_hook_types:
+                return jsonify({'error': f'无效的钩子类型: {hook_type}'}), 400
+            
+            if not isinstance(config, dict):
+                continue
+            
+            script_type = config.get('script_type')
+            if script_type and script_type not in valid_script_types:
+                return jsonify({'error': f'无效的脚本类型: {script_type}'}), 400
+            
+            timeout = config.get('timeout', 30)
+            if not isinstance(timeout, (int, float)) or timeout < 1 or timeout > 300:
+                return jsonify({'error': 'timeout 必须在 1-300 秒之间'}), 400
+        
+        with get_db() as db:
+            # 验证任务所属
+            task = db.query(NotifyTask).filter(
+                NotifyTask.id == task_id,
+                NotifyTask.user_id == request.current_user.id
+            ).first()
+            if not task:
+                return jsonify({'error': '任务不存在'}), 404
+            
+            # 更新钩子配置
+            task.hooks_config = json.dumps(hooks_config, ensure_ascii=False)
+            db.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': '钩子配置已更新'
+            })
+    except Exception as e:
+        logger.error(f"更新钩子配置失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tasks/<int:task_id>/hooks/logs', methods=['GET'])
+@login_required
+def get_task_hook_logs(task_id):
+    """获取任务钩子执行日志"""
+    try:
+        from models import HookExecutionLog
+        
+        with get_db() as db:
+            # 验证任务所属
+            task = db.query(NotifyTask).filter(
+                NotifyTask.id == task_id,
+                NotifyTask.user_id == request.current_user.id
+            ).first()
+            if not task:
+                return jsonify({'error': '任务不存在'}), 404
+            
+            # 分页查询
+            page = int(request.args.get('page', 1))
+            page_size = int(request.args.get('page_size', 50))
+            hook_type = request.args.get('hook_type')  # 可选过滤
+            status = request.args.get('status')  # 可选过滤
+            
+            logs_query = db.query(HookExecutionLog).filter(
+                HookExecutionLog.task_id == task_id
+            )
+            
+            if hook_type:
+                logs_query = logs_query.filter(HookExecutionLog.hook_type == hook_type)
+            
+            if status:
+                logs_query = logs_query.filter(HookExecutionLog.status == status)
+            
+            logs_query = logs_query.order_by(HookExecutionLog.execution_start.desc())
+            
+            total = logs_query.count()
+            logs = logs_query.offset((page - 1) * page_size).limit(page_size).all()
+            
+            return jsonify({
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'logs': [log.to_dict() for log in logs]
+            })
+    except Exception as e:
+        logger.error(f"获取钩子日志失败: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/tasks/<int:task_id>/hooks/test', methods=['POST'])
+@login_required
+def test_task_hook(task_id):
+    """测试钩子脚本"""
+    try:
+        import json
+        from hooks import execute_hook
+        
+        data = request.get_json()
+        hook_type = data.get('hook_type')
+        script_type = data.get('script_type', 'python')
+        script = data.get('script', '')
+        timeout = data.get('timeout', 30)
+        
+        if not hook_type or hook_type not in ['before_execute', 'after_success', 'after_failure']:
+            return jsonify({'error': '无效的钩子类型'}), 400
+        
+        if not script:
+            return jsonify({'error': '脚本内容不能为空'}), 400
+        
+        with get_db() as db:
+            # 验证任务所属
+            task = db.query(NotifyTask).filter(
+                NotifyTask.id == task_id,
+                NotifyTask.user_id == request.current_user.id
+            ).first()
+            if not task:
+                return jsonify({'error': '任务不存在'}), 404
+            
+            # 构造测试配置
+            test_hooks_config = {
+                hook_type: {
+                    'enabled': True,
+                    'script_type': script_type,
+                    'script': script,
+                    'timeout': timeout
+                }
+            }
+            
+            # 临时保存原配置
+            original_config = task.hooks_config
+            task.hooks_config = json.dumps(test_hooks_config, ensure_ascii=False)
+            
+            # 准备测试上下文
+            test_context = {}
+            if hook_type == 'after_success':
+                test_context = {'send_results': {'test': {'status': 'sent', 'message': '测试执行'}}}
+            elif hook_type == 'after_failure':
+                test_context = {'error': '测试错误', 'traceback': '测试堆栈'}
+            
+            # 执行测试
+            result = execute_hook(
+                hook_type=hook_type,
+                task_id=task_id,
+                task=task,
+                context=test_context,
+                db_session=db,
+                task_execution_log_id=None
+            )
+            
+            # 恢复原配置
+            task.hooks_config = original_config
+            db.commit()
+            
+            return jsonify({
+                'success': result.get('success', False),
+                'output': result.get('output', ''),
+                'error': result.get('error'),
+                'data': result.get('data')
+            })
+    except Exception as e:
+        logger.error(f"测试钩子失败: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 

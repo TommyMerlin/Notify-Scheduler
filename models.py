@@ -191,6 +191,9 @@ class NotifyTask(Base):
     is_recurring = Column(Boolean, default=False, comment="是否重复任务")
     cron_expression = Column(String(100), nullable=True, comment="Cron表达式（用于重复任务）")
     external_uid = Column(String(255), nullable=True, comment="外部日历事件UID")
+    
+    # 钩子配置
+    hooks_config = Column(Text, nullable=True, comment="钩子配置（JSON格式）")
 
     # 关联关系
     user = relationship("User", back_populates="notify_tasks")
@@ -244,6 +247,78 @@ class NotifyTask(Base):
             result['channels'] = channels
             result['channels_config'] = channels_config
             result['send_results'] = send_results
+        
+        # 添加钩子配置
+        if self.hooks_config:
+            try:
+                result['hooks_config'] = json.loads(self.hooks_config)
+            except (json.JSONDecodeError, TypeError):
+                result['hooks_config'] = None
+        
+        return result
+
+
+class HookExecutionLog(Base):
+    """钩子执行日志"""
+    __tablename__ = 'hook_execution_logs'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(Integer, ForeignKey('notify_tasks.id'), nullable=False, comment="任务ID")
+    task_execution_log_id = Column(Integer, ForeignKey('task_execution_logs.id'), nullable=True, comment="关联任务执行日志ID")
+    
+    # 钩子信息
+    hook_type = Column(String(50), nullable=False, comment="钩子类型: before_execute/after_success/after_failure")
+    script_type = Column(String(20), nullable=False, comment="脚本类型: python/shell")
+    script_content = Column(Text, nullable=True, comment="脚本内容（记录快照）")
+    
+    # 执行信息
+    execution_start = Column(DateTime, nullable=False, comment="执行开始时间")
+    execution_end = Column(DateTime, nullable=True, comment="执行结束时间")
+    execution_duration = Column(Float, nullable=True, comment="执行时长（秒）")
+    
+    # 状态与结果
+    status = Column(String(20), nullable=False, comment="执行状态: success/failed/timeout/skipped")
+    output = Column(Text, nullable=True, comment="脚本输出")
+    error_message = Column(Text, nullable=True, comment="错误信息")
+    error_traceback = Column(Text, nullable=True, comment="错误堆栈")
+    
+    # 返回数据
+    return_data = Column(Text, nullable=True, comment="脚本返回的数据（JSON）")
+    
+    created_at = Column(DateTime, default=datetime.now, comment="记录创建时间")
+    
+    # 关联关系
+    task = relationship("NotifyTask", backref="hook_logs")
+    
+    # 索引
+    __table_args__ = (
+        Index('idx_hook_task_execution', 'task_id', 'execution_start'),
+        Index('idx_hook_type', 'hook_type', 'status'),
+    )
+    
+    def to_dict(self):
+        """转换为字典"""
+        result = {
+            'id': self.id,
+            'task_id': self.task_id,
+            'task_execution_log_id': self.task_execution_log_id,
+            'hook_type': self.hook_type,
+            'script_type': self.script_type,
+            'execution_start': self.execution_start.isoformat() if self.execution_start else None,
+            'execution_end': self.execution_end.isoformat() if self.execution_end else None,
+            'execution_duration': self.execution_duration,
+            'status': self.status,
+            'output': self.output,
+            'error_message': self.error_message,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+        
+        # 解析 return_data
+        if self.return_data:
+            try:
+                result['return_data'] = json.loads(self.return_data)
+            except:
+                pass
         
         return result
 
@@ -462,6 +537,14 @@ def init_db():
                     print("Migration completed: channel and channel_config are now nullable")
             except Exception as e:
                 print(f"Channel nullable migration info: {e}")
+            
+            # 5. 检查 notify_tasks.hooks_config
+            try:
+                conn.execute(text("SELECT hooks_config FROM notify_tasks LIMIT 1"))
+            except Exception:
+                print("Migrating: Adding hooks_config to notify_tasks table...")
+                conn.execute(text("ALTER TABLE notify_tasks ADD COLUMN hooks_config TEXT"))
+                conn.commit()
     except Exception as e:
         print(f"Migration warning: {e}")
 

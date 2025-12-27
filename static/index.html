@@ -476,13 +476,133 @@
                     <input type="text" id="editCronExpression" name="cronExpression" readonly style="background: #f5f5f5;">
                 </div>
 
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <!-- 钩子配置部分 -->
+                <div class="form-group" style="margin-top: 20px;">
+                    <label style="font-weight: 600; font-size: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                        <span>⚡</span>
+                        <span>任务钩子脚本</span>
+                        <small style="font-weight: normal; color: var(--text-muted); font-size: 13px;">（可选）</small>
+                    </label>
+                    
+                    <div class="hooks-tabs" style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 2px solid #e9ecef; padding-bottom: 8px;">
+                        <button type="button" class="hook-tab active" data-hook="before_execute" onclick="switchHookTab('before_execute')" style="flex: 1; padding: 8px 12px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 13px; color: var(--text-muted); transition: all 0.2s;">
+                            🚀 执行前
+                        </button>
+                        <button type="button" class="hook-tab" data-hook="after_success" onclick="switchHookTab('after_success')" style="flex: 1; padding: 8px 12px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 13px; color: var(--text-muted); transition: all 0.2s;">
+                            ✅ 成功后
+                        </button>
+                        <button type="button" class="hook-tab" data-hook="after_failure" onclick="switchHookTab('after_failure')" style="flex: 1; padding: 8px 12px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 13px; color: var(--text-muted); transition: all 0.2s;">
+                            ❌ 失败后
+                        </button>
+                    </div>
+
+                    <div id="hookPanelBeforeExecute" class="hook-panel" style="display: block;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                                <input type="checkbox" id="hookBeforeExecuteEnabled" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-weight: 500;">启用</span>
+                            </label>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <select id="hookBeforeExecuteScriptType" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
+                                    <option value="python">Python</option>
+                                    <option value="shell">Shell</option>
+                                </select>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 13px; color: var(--text-muted);">超时:</span>
+                                    <input type="number" id="hookBeforeExecuteTimeout" min="1" max="300" value="30" style="width: 65px; padding: 6px 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
+                                    <span style="font-size: 13px; color: var(--text-muted);">秒</span>
+                                </div>
+                            </div>
+                        </div>
+                        <textarea id="hookBeforeExecuteScript" rows="5" placeholder="# 可用变量: task, task_id, hook_type&#10;# 示例: print(f'Task {task_id} 即将执行')" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; resize: vertical;"></textarea>
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+                            💡 可验证条件、准备环境。设置 result_data['should_skip_task'] = True 跳过任务。
+                        </div>
+                    </div>
+
+                    <div id="hookPanelAfterSuccess" class="hook-panel" style="display: none;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                                <input type="checkbox" id="hookAfterSuccessEnabled" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-weight: 500;">启用</span>
+                            </label>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <select id="hookAfterSuccessScriptType" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
+                                    <option value="python">Python</option>
+                                    <option value="shell">Shell</option>
+                                </select>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 13px; color: var(--text-muted);">超时:</span>
+                                    <input type="number" id="hookAfterSuccessTimeout" min="1" max="300" value="30" style="width: 65px; padding: 6px 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
+                                    <span style="font-size: 13px; color: var(--text-muted);">秒</span>
+                                </div>
+                            </div>
+                        </div>
+                        <textarea id="hookAfterSuccessScript" rows="5" placeholder="# 可用变量: task, send_results, success_count, failed_count&#10;# 示例: print('任务执行成功')" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; resize: vertical;"></textarea>
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+                            💡 可记录日志、发送 Webhook 通知、触发后续流程。
+                        </div>
+                    </div>
+
+                    <div id="hookPanelAfterFailure" class="hook-panel" style="display: none;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+                                <input type="checkbox" id="hookAfterFailureEnabled" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span style="font-weight: 500;">启用</span>
+                            </label>
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <select id="hookAfterFailureScriptType" style="padding: 6px 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
+                                    <option value="python">Python</option>
+                                    <option value="shell">Shell</option>
+                                </select>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <span style="font-size: 13px; color: var(--text-muted);">超时:</span>
+                                    <input type="number" id="hookAfterFailureTimeout" min="1" max="300" value="30" style="width: 65px; padding: 6px 8px; border-radius: 4px; border: 1px solid #ddd; font-size: 13px;">
+                                    <span style="font-size: 13px; color: var(--text-muted);">秒</span>
+                                </div>
+                            </div>
+                        </div>
+                        <textarea id="hookAfterFailureScript" rows="5" placeholder="# 可用变量: task, error, traceback&#10;# 示例: print(f'任务失败: {error}')" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; resize: vertical;"></textarea>
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+                            💡 可发送告警、记录详细错误、执行降级策略。
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <button type="button" class="btn btn-secondary" onclick="testCurrentHook()" style="flex: 1; font-size: 13px; padding: 8px 12px;">
+                            🧪 测试当前钩子
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="viewHookLogsModal()" style="flex: 1; font-size: 13px; padding: 8px 12px;">
+                            📋 查看执行日志
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid #e9ecef;">
                     <button type="submit" class="btn btn-primary" style="flex: 1;">保存修改</button>
-                    <button type="button" class="btn btn-danger" onclick="closeEditTaskModal()" style="flex: 1;">取消</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditTaskModal()" style="flex: 1;">取消</button>
                 </div>
             </form>
         </div>
     </div>
+
+    <style>
+        .hook-tab.active {
+            color: var(--primary) !important;
+            font-weight: 600;
+            border-bottom-color: var(--primary) !important;
+        }
+        .hook-tab:hover {
+            color: var(--primary);
+            background: rgba(102, 126, 234, 0.05);
+            border-radius: 4px 4px 0 0;
+        }
+        .hook-panel {
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+    </style>
 
     <!-- 用户设置模态框 -->
     <div id="userSettingsModal" class="modal">

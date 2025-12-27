@@ -6,6 +6,7 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.cron import CronTrigger
 from models import NotifyTask, NotifyStatus, ExternalCalendar, UserChannel, get_db, DATABASE_URL
 from notifier import NotificationSender, parse_config
+from hooks import execute_hook
 import logging
 import queue
 import requests
@@ -130,6 +131,21 @@ def execute_task(task_id: int):
 
             logger.info(f"✓ 开始执行任务 {task_id}: {task.title} (Worker: {worker_id})")
 
+            # 执行 before_execute 钩子
+            try:
+                hook_result = execute_hook(
+                    hook_type='before_execute',
+                    task_id=task_id,
+                    task=task,
+                    context={},
+                    db_session=db,
+                    task_execution_log_id=log.id
+                )
+                if not hook_result.get('success') and not hook_result.get('skipped'):
+                    logger.warning(f"before_execute 钩子执行失败: {hook_result.get('error')}")
+            except Exception as hook_err:
+                logger.error(f"执行 before_execute 钩子时出错: {str(hook_err)}")
+
             # 检测是多渠道还是单渠道任务
             is_multi_channel = task.channels_json is not None
             
@@ -217,6 +233,22 @@ def execute_task(task_id: int):
                 
                 logger.info(f"✓ 任务 {task_id} 多渠道执行完成: {success_count} 成功, {fail_count} 失败，耗时 {duration:.2f}秒")
                 
+                # 执行 after_success 钩子
+                if success_count > 0:
+                    try:
+                        hook_result = execute_hook(
+                            hook_type='after_success',
+                            task_id=task_id,
+                            task=task,
+                            context={'send_results': send_results},
+                            db_session=db,
+                            task_execution_log_id=log.id
+                        )
+                        if not hook_result.get('success') and not hook_result.get('skipped'):
+                            logger.warning(f"after_success 钩子执行失败: {hook_result.get('error')}")
+                    except Exception as hook_err:
+                        logger.error(f"执行 after_success 钩子时出错: {str(hook_err)}")
+                
                 # 通知前端
                 event_manager.announce(task.user_id, {
                     'type': 'task_executed',
@@ -267,6 +299,21 @@ def execute_task(task_id: int):
 
                 logger.info(f"✓ 任务 {task_id} 执行成功，耗时 {duration:.2f}秒")
                 
+                # 执行 after_success 钩子
+                try:
+                    hook_result = execute_hook(
+                        hook_type='after_success',
+                        task_id=task_id,
+                        task=task,
+                        context={'send_results': {'single_channel': {'status': 'sent'}}},
+                        db_session=db,
+                        task_execution_log_id=log.id
+                    )
+                    if not hook_result.get('success') and not hook_result.get('skipped'):
+                        logger.warning(f"after_success 钩子执行失败: {hook_result.get('error')}")
+                except Exception as hook_err:
+                    logger.error(f"执行 after_success 钩子时出错: {str(hook_err)}")
+                
                 # 通知前端
                 event_manager.announce(task.user_id, {
                     'type': 'task_executed',
@@ -310,6 +357,23 @@ def execute_task(task_id: int):
             
             db.commit()
             logger.error(f"✗ 任务 {task_id} 执行失败: {str(e)}\n{traceback.format_exc()}")
+            
+            # 执行 after_failure 钩子
+            try:
+                task_obj = db.query(NotifyTask).filter(NotifyTask.id == task_id).first()
+                if task_obj:
+                    hook_result = execute_hook(
+                        hook_type='after_failure',
+                        task_id=task_id,
+                        task=task_obj,
+                        context={'error': str(e), 'traceback': traceback.format_exc()},
+                        db_session=db,
+                        task_execution_log_id=log.id if log else None
+                    )
+                    if not hook_result.get('success') and not hook_result.get('skipped'):
+                        logger.warning(f"after_failure 钩子执行失败: {hook_result.get('error')}")
+            except Exception as hook_err:
+                logger.error(f"执行 after_failure 钩子时出错: {str(hook_err)}")
             
             # 触发告警
             try:
