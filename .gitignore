@@ -2,3 +2,8 @@ __pycache__/
 *.db
 settings.local.json
 *.DS_Store
+.agents/
+.claude/
+.codex/
+.trellis/
+.vscode/
