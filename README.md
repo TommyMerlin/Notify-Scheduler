@@ -79,6 +79,9 @@ cd /path/to/notify-scheduler
 ./start.sh prod
 ```
 
+> 注意：生产模式当前必须使用单个 Gunicorn worker。
+> 项目里的 APScheduler 是进程内调度器，如果开启多个 worker，同一个待发送任务会被多个进程重复执行，导致重复推送。
+
 ## Web 界面使用说明
 
 访问 `http://your-server:5000` 打开 Web 管理界面。
@@ -100,7 +103,7 @@ cd /path/to/notify-scheduler
 | 文件                       | 说明                   | 用途           |
 | -------------------------- | ---------------------- | -------------- |
 | `requirements.txt`         | Python 依赖包列表      | 安装依赖       |
-| `gunicorn_config.py`       | Gunicorn 服务器配置    | 生产部署       |
+| `gunicorn_config.py`       | Gunicorn 服务器配置（单 worker，避免重复调度） | 生产部署       |
 | `nginx.conf`               | Nginx 反向代理配置示例 | 生产部署       |
 | `docker-compose.yml`       | Docker Compose 配置    | Docker 部署    |
 | `Dockerfile`               | Docker 镜像配置        | Docker 部署    |

@@ -30,6 +30,9 @@ python app.py
 docker-compose up -d
 ```
 
+> 注意：当前 Gunicorn 必须保持单 worker。
+> `scheduler.py` 中的 APScheduler 会在进程内启动；如果 Gunicorn 开多个 worker，每个 worker 都会加载并执行同一批任务，造成重复推送。
+
 ### 数据库操作
 ```bash
 # 初始化数据库
@@ -96,5 +99,5 @@ Web 前端 → Flask API → APScheduler → NotificationSender → ANotify → 
 1. **端口**: 默认 5000，可在 `gunicorn_config.py` 或 `app.py` 中修改
 2. **日志**: 访问日志和错误日志保存在 `logs/` 目录
 3. **数据持久化**: 数据库文件 `notify_scheduler.db` 需要备份
-4. **生产环境**: 推荐使用 Gunicorn + Nginx + Systemd 的组合
+4. **生产环境**: 推荐使用 Gunicorn + Nginx + Systemd 的组合，但 Gunicorn 需保持单 worker，直到调度器被拆分为独立进程或改为共享协调机制
 5. **Docker**: 支持多种容器化部署方式，数据卷挂载确保数据持久化
