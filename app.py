@@ -10,6 +10,7 @@ import os
 import jwt
 import secrets
 import uuid
+from sqlalchemy import or_
 
 app = Flask(__name__, static_folder='static')
 CORS(app)  # 启用跨域支持
@@ -331,6 +332,7 @@ def list_tasks():
 
     查询参数:
     - status: 过滤状态 (pending/sent/failed/cancelled)
+    - search: 按标题或内容关键词搜索
     - page: 页码，默认 1
     - page_size: 每页数量，默认 20
     - sort_by: 排序字段 (scheduled_time/id/status/created_at)，默认 scheduled_time
@@ -348,6 +350,17 @@ def list_tasks():
                     query = query.filter(NotifyTask.status == status_enum)
                 except ValueError:
                     return jsonify({'error': f'无效的状态值: {status}'}), 400
+
+            # 关键词搜索
+            search = request.args.get('search', '').strip()
+            if search:
+                search_pattern = f'%{search}%'
+                query = query.filter(
+                    or_(
+                        NotifyTask.title.ilike(search_pattern),
+                        NotifyTask.content.ilike(search_pattern)
+                    )
+                )
 
             # 排序
             sort_by = request.args.get('sort_by', 'scheduled_time')

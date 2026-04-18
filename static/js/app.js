@@ -426,6 +426,11 @@ function initAppEvents() {
     document.getElementById('taskForm').addEventListener('submit', submitTaskForm);
     document.getElementById('channel').addEventListener('change', onChannelChange);
     document.getElementById('enableMultiChannel').addEventListener('change', onMultiChannelToggle);
+    const taskSearchInput = document.getElementById('taskSearchInput');
+    if (taskSearchInput && !taskSearchInput._bound) {
+        taskSearchInput.addEventListener('input', debounce(loadTasks, 250));
+        taskSearchInput._bound = true;
+    }
     
     const statusFilter = document.getElementById('statusFilter');
     if (statusFilter) {
@@ -1063,6 +1068,8 @@ function convertCronExpressionForBackend(expr) {
 async function loadTasks() {
     const taskList = document.getElementById('taskList');
     const statusFilter = document.getElementById('statusFilter').value;
+    const taskSearchInput = document.getElementById('taskSearchInput');
+    const searchKeyword = taskSearchInput ? taskSearchInput.value.trim() : '';
     const recurringFilterEl = document.getElementById('recurringFilter');
     const recurringFilter = recurringFilterEl ? recurringFilterEl.value : '';
     const sortFieldSelect = document.getElementById('sortField');
@@ -1075,6 +1082,7 @@ async function loadTasks() {
     try {
         const params = new URLSearchParams({ page_size: '100' });
         if (statusFilter) params.append('status', statusFilter);
+        if (searchKeyword) params.append('search', searchKeyword);
         if (sortField) params.append('sort_by', sortField);
         if (sortOrder) params.append('sort_order', sortOrder.toLowerCase());
 
@@ -1098,10 +1106,10 @@ async function loadTasks() {
             if (tasks.length > 0) {
                 tasks.forEach(task => taskList.appendChild(createTaskElement(task)));
             } else {
-                taskList.innerHTML = '<div class="empty-state"><i>📭</i><p>暂无任务</p></div>';
+                taskList.innerHTML = `<div class="empty-state"><i>📭</i><p>${searchKeyword ? '未找到匹配的任务' : '暂无任务'}</p></div>`;
             }
         } else {
-            taskList.innerHTML = '<div class="empty-state"><i>📭</i><p>暂无任务</p></div>';
+            taskList.innerHTML = `<div class="empty-state"><i>📭</i><p>${searchKeyword ? '未找到匹配的任务' : '暂无任务'}</p></div>`;
         }
     } catch (error) {
         taskList.innerHTML = '<div class="empty-state"><i>❌</i><p>加载失败: ' + error.message + '</p></div>';
